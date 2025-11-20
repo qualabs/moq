@@ -507,7 +507,11 @@ impl Import {
 						.unwrap_or(tfhd.default_sample_size.unwrap_or(default_sample_size)) as usize;
 
 					let pts = (dts as i64 + entry.cts.unwrap_or_default() as i64) as u64;
-					let timestamp = Timestamp::from_micros(1_000_000 * pts / timescale);
+					let mut micros = (1_000_000u128 * pts as u128) / timescale as u128;
+					if micros > u64::MAX as u128 {
+						micros = u64::MAX as u128;
+					}
+					let timestamp = Timestamp::from_micros(micros.try_into().unwrap_or(u64::MAX));
 
 					if offset + size > mdat.len() {
 						return Err(Error::InvalidOffset);
@@ -531,7 +535,10 @@ impl Import {
 					} else {
 						match self.last_keyframe.get(&track_id) {
 							// Force an audio keyframe at least every 10 seconds, but ideally at video keyframes
-							Some(prev) => timestamp - *prev > Duration::from_secs(10),
+							Some(prev) => timestamp
+								.checked_sub(*prev)
+								.map(|diff| diff > Duration::from_secs(10))
+								.unwrap_or(true),
 							None => true,
 						}
 					};
@@ -563,10 +570,12 @@ impl Import {
 		}
 
 		if let (Some(min), Some(max)) = (min_timestamp, max_timestamp) {
-			let diff = max - min;
-
-			if diff > Duration::from_millis(1) {
-				tracing::warn!("fMP4 introduced {:?} of latency", diff);
+			if let Some(diff) = max.checked_sub(min) {
+				if diff > Duration::from_millis(1) {
+					tracing::warn!("fMP4 introduced {:?} of latency", diff);
+				}
+			} else {
+				tracing::warn!(min = ?min, max = ?max, "fMP4 timestamps out of order");
 			}
 		}
 
