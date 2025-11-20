@@ -58,10 +58,28 @@ impl Import {
 		let catalog = Catalog::default().produce();
 		broadcast.insert_track(catalog.consumer.track);
 
+		Self::from_parts(broadcast, catalog.producer)
+	}
+
+	/// Create an importer that reuses an existing catalog.
+	///
+	/// This is needed when multiple ingest pipelines feed the same broadcast
+	/// (for example, separate audio/video playlists in HLS) so that they share
+	/// a single `catalog.json` track.
+	pub fn with_catalog(broadcast: BroadcastProducer, catalog: CatalogProducer) -> Self {
+		Self::from_parts(broadcast, catalog)
+	}
+
+	/// Clone the catalog handle so other ingest pipelines can contribute to it.
+	pub fn catalog(&self) -> CatalogProducer {
+		self.catalog.clone()
+	}
+
+	fn from_parts(broadcast: BroadcastProducer, catalog: CatalogProducer) -> Self {
 		Self {
 			buffer: BytesMut::new(),
 			broadcast,
-			catalog: catalog.producer,
+			catalog,
 			tracks: HashMap::default(),
 			last_keyframe: HashMap::default(),
 			moov: None,

@@ -27,6 +27,10 @@ serde_with = { version = "3", features = ["hex"] }
 thiserror = "2"
 tokio = { workspace = true, features = ["macros"] }
 tracing = "0.1"
+m3u8-rs = "5.0"
+reqwest = { version = "0.11", features = ["json", "stream"] }
+anyhow = "1.0"
+url = "2.4"
 
 [dependencies.derive_more]
 version = "2"
