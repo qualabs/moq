@@ -16,7 +16,7 @@ use tokio::io::{AsyncRead, AsyncReadExt};
 /// ## Supported Codecs
 ///
 /// **Video:**
-/// - H.264 (AVC1)
+/// - H.264 (AVC1/AVC3)
 /// - H.265 (HEVC/HEV1/HVC1)
 /// - VP8
 /// - VP9
@@ -184,30 +184,8 @@ impl Import {
 		};
 
 		let config = match codec {
-			mp4_atom::Codec::Avc1(avc1) => {
-				let avcc = &avc1.avcc;
-
-				let mut description = BytesMut::new();
-				avcc.encode_body(&mut description)?;
-
-				VideoConfig {
-					coded_width: Some(avc1.visual.width as _),
-					coded_height: Some(avc1.visual.height as _),
-					codec: H264 {
-						profile: avcc.avc_profile_indication,
-						constraints: avcc.profile_compatibility,
-						level: avcc.avc_level_indication,
-					}
-					.into(),
-					description: Some(description.freeze()),
-					// TODO: populate these fields
-					framerate: None,
-					bitrate: None,
-					display_ratio_width: None,
-					display_ratio_height: None,
-					optimize_for_latency: None,
-				}
-			}
+			mp4_atom::Codec::Avc1(avc1) => Self::init_h264(&avc1.visual, &avc1.avcc)?,
+			mp4_atom::Codec::Avc3(avc3) => Self::init_h264(&avc3.visual, &avc3.avcc)?,
 			mp4_atom::Codec::Hev1(hev1) => Self::init_h265(true, &hev1.hvcc, &hev1.visual)?,
 			mp4_atom::Codec::Hvc1(hvc1) => Self::init_h265(false, &hvc1.hvcc, &hvc1.visual)?,
 			mp4_atom::Codec::Vp08(vp08) => VideoConfig {
@@ -310,6 +288,29 @@ impl Import {
 			// TODO: populate these fields
 			bitrate: None,
 			framerate: None,
+			display_ratio_width: None,
+			display_ratio_height: None,
+			optimize_for_latency: None,
+		})
+	}
+
+	fn init_h264(visual: &mp4_atom::Visual, avcc: &mp4_atom::Avcc) -> Result<VideoConfig> {
+		let mut description = BytesMut::new();
+		avcc.encode_body(&mut description)?;
+
+		Ok(VideoConfig {
+			coded_width: Some(visual.width as _),
+			coded_height: Some(visual.height as _),
+			codec: H264 {
+				profile: avcc.avc_profile_indication,
+				constraints: avcc.profile_compatibility,
+				level: avcc.avc_level_indication,
+			}
+			.into(),
+			description: Some(description.freeze()),
+			// TODO: populate these fields
+			framerate: None,
+			bitrate: None,
 			display_ratio_width: None,
 			display_ratio_height: None,
 			optimize_for_latency: None,

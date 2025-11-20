@@ -1,6 +1,8 @@
 // cargo run --example video
 use moq_lite::coding::Bytes;
 
+use hang::catalog;
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
 	// Optional: Use moq_native to configure a logger.
@@ -53,8 +55,8 @@ fn create_track(broadcast: &mut moq_lite::BroadcastProducer) -> hang::TrackProdu
 
 	// Example video configuration
 	// In a real application, you would get this from the encoder
-	let video_config = hang::catalog::VideoConfig {
-		codec: hang::catalog::H264 {
+	let video_config = catalog::VideoConfig {
+		codec: catalog::H264 {
 			profile: 0x4D, // Main profile
 			constraints: 0,
 			level: 0x28, // Level 4.0

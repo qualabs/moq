@@ -1,4 +1,5 @@
 mod client;
+mod hls;
 mod import;
 mod server;
 
@@ -8,7 +9,8 @@ use client::*;
 use import::*;
 use server::*;
 
-use clap::{Parser, Subcommand};
+use clap::{Args, Parser, Subcommand};
+use hls::HlsConfig;
 use url::Url;
 
 #[derive(Parser, Clone)]
@@ -37,6 +39,8 @@ pub enum Command {
 		/// The format of the input media.
 		#[arg(long, value_enum, default_value_t = ImportType::Cmaf)]
 		format: ImportType,
+		#[command(flatten)]
+		hls: HlsArgs,
 	},
 	Publish {
 		/// The MoQ client configuration.
@@ -63,7 +67,31 @@ pub enum Command {
 		/// The format of the input media.
 		#[arg(long, value_enum, default_value_t = ImportType::Cmaf)]
 		format: ImportType,
+		#[command(flatten)]
+		hls: HlsArgs,
 	},
+}
+
+#[derive(Args, Clone, Default)]
+pub struct HlsArgs {
+	/// The media playlist to ingest (required when --format hls).
+	#[arg(long, value_name = "URL", required_if_eq("format", "hls"))]
+	hls_url: Option<Url>,
+
+	/// Number of segments to buffer before announcing the broadcast.
+	#[arg(long, default_value_t = 3)]
+	hls_preroll: usize,
+
+	/// Fraction of target duration to wait after new data is ingested.
+	#[arg(long, default_value_t = 0.5)]
+	hls_refresh_ratio: f32,
+}
+
+impl HlsArgs {
+	fn into_config(self) -> Option<HlsConfig> {
+		self.hls_url
+			.map(|url| HlsConfig::new(url, self.hls_preroll, self.hls_refresh_ratio))
+	}
 }
 
 #[tokio::main]
@@ -77,12 +105,14 @@ async fn main() -> anyhow::Result<()> {
 			dir,
 			name,
 			format,
-		} => server(config, name, dir, format, &mut tokio::io::stdin()).await,
+			hls,
+		} => server(config, name, dir, format, hls.into_config(), &mut tokio::io::stdin()).await,
 		Command::Publish {
 			config,
 			url,
 			name,
 			format,
-		} => client(config, url, name, format, &mut tokio::io::stdin()).await,
+			hls,
+		} => client(config, url, name, format, hls.into_config(), &mut tokio::io::stdin()).await,
 	}
 }

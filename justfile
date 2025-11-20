@@ -71,6 +71,10 @@ leaf:
 pub name url='http://localhost:4443/anon' *args:
 	cd rs && just pub {{name}} {{url}} {{args}}
 
+# Ingest a live HLS media playlist and publish it via hang.
+ingest-hls url name='demo' relay='http://localhost:4443/anon':
+	cd rs && cargo run --bin hang -- publish --url {{relay}} --name {{name}} --format hls --hls-url {{url}}
+
 # Publish/subscribe using gstreamer - see https://github.com/kixelated/hang-gst
 pub-gst name url='http://localhost:4443/anon':
 	@echo "GStreamer plugin has moved to: https://github.com/kixelated/hang-gst"

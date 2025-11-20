@@ -31,7 +31,8 @@ impl FromStr for H264 {
 
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
 		let mut parts = s.split('.');
-		if parts.next() != Some("avc1") {
+		let prefix = parts.next().ok_or(Error::InvalidCodec)?;
+		if prefix != "avc1" && prefix != "avc3" {
 			return Err(Error::InvalidCodec);
 		}
 
@@ -71,5 +72,22 @@ mod tests {
 
 		let output = decoded.to_string();
 		assert_eq!(output, encoded);
+	}
+
+	#[test]
+	fn test_h264_accepts_avc3() {
+		let encoded = "avc3.64001f";
+		let decoded = H264 {
+			profile: 0x64,
+			constraints: 0x00,
+			level: 0x1f,
+		}
+		.into();
+
+		let output = VideoCodec::from_str(encoded).expect("failed to parse");
+		assert_eq!(output, decoded);
+
+		let output = decoded.to_string();
+		assert_eq!(output, "avc1.64001f");
 	}
 }

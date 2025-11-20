@@ -1,3 +1,4 @@
+use crate::hls::HlsConfig;
 use crate::import::Import;
 use crate::ImportType;
 use anyhow::Context;
@@ -10,6 +11,7 @@ pub async fn client<T: AsyncRead + Unpin>(
 	url: Url,
 	name: String,
 	format: ImportType,
+	hls: Option<HlsConfig>,
 	input: &mut T,
 ) -> anyhow::Result<()> {
 	let broadcast = moq_lite::Broadcast::produce();
@@ -24,11 +26,14 @@ pub async fn client<T: AsyncRead + Unpin>(
 	// Establish the connection, not providing a subscriber.
 	let session = moq_lite::Session::connect(session, origin.consumer, None).await?;
 
-	let mut import = Import::new(broadcast.producer, format);
-	import
-		.init_from(input)
-		.await
-		.context("failed to initialize from media stream")?;
+	let mut import = Import::new(broadcast.producer, format, hls).context("failed to build importer")?;
+	match format {
+		ImportType::Hls => import.init_from::<T>(None).await?,
+		_ => import
+			.init_from(Some(input))
+			.await
+			.context("failed to initialize from media stream")?,
+	};
 
 	// Announce the broadcast as available once the catalog is ready.
 	origin.producer.publish_broadcast(&name, broadcast.consumer);
@@ -37,7 +42,12 @@ pub async fn client<T: AsyncRead + Unpin>(
 	let _ = sd_notify::notify(true, &[sd_notify::NotifyState::Ready]);
 
 	tokio::select! {
-		res = import.read_from(input) => res,
+		res = async {
+			match format {
+				ImportType::Hls => import.read_from::<T>(None).await,
+				_ => import.read_from(Some(input)).await,
+			}
+		} => res,
 		res = session.closed() => res.map_err(Into::into),
 
 		_ = tokio::signal::ctrl_c() => {

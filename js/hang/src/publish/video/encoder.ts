@@ -1,6 +1,6 @@
-import * as Moq from "@kixelated/moq";
+import type * as Moq from "@kixelated/moq";
 import { Effect, type Getter, Signal } from "@kixelated/signals";
-import * as Catalog from "../../catalog";
+import type * as Catalog from "../../catalog";
 import { u53 } from "../../catalog";
 import * as Frame from "../../frame";
 import * as Time from "../../time";
@@ -172,6 +172,7 @@ export class Encoder {
 		effect.spawn(async () => {
 			const codec = await this.#bestCodec(effect);
 			if (!codec) return;
+			const isH264 = codec.startsWith("avc1") || codec.startsWith("avc3");
 
 			// TARGET BITRATE CALCULATION (h264)
 			// 480p@30 = 1.0mbps
@@ -197,7 +198,7 @@ export class Encoder {
 
 			// We scale the bitrate for more efficient codecs.
 			// TODO This shouldn't be linear, as the efficiency is very similar at low bitrates.
-			if (codec.startsWith("avc1")) {
+			if (isH264) {
 				bitrate *= 1.0; // noop
 			} else if (codec.startsWith("hev1")) {
 				bitrate *= 0.7;
@@ -220,7 +221,7 @@ export class Encoder {
 				height: dimensions.height,
 				framerate,
 				bitrate,
-				avc: codec.startsWith("avc1") ? { format: "annexb" } : undefined,
+				avc: isH264 ? { format: "annexb" } : undefined,
 				// @ts-expect-error Typescript needs to be updated.
 				hevc: codec.startsWith("hev1") ? { format: "annexb" } : undefined,
 				latencyMode: "realtime",
@@ -269,7 +270,8 @@ export class Encoder {
 			"avc1.4D401F",
 			"avc1.42E01E",
 			"avc1",
-
+			"avc3.64002A",
+			"avc3",
 			// AV1
 			// One day will get moved higher up the list, but hardware decoding is rare.
 			"av01.0.08M.08",
@@ -318,6 +320,7 @@ export class Encoder {
 		if (!isFirefox) {
 			for (const codec of HARDWARE_CODECS) {
 				if (!codec.startsWith(required)) continue;
+				const isH264 = codec.startsWith("avc1") || codec.startsWith("avc3");
 
 				const hardware: VideoEncoderConfig = {
 					codec,
@@ -325,7 +328,7 @@ export class Encoder {
 					height: dimensions.height,
 					latencyMode: "realtime",
 					hardwareAcceleration: "prefer-hardware",
-					avc: codec.startsWith("avc1") ? { format: "annexb" } : undefined,
+					avc: isH264 ? { format: "annexb" } : undefined,
 					// @ts-expect-error Typescript needs to be updated.
 					hevc: codec.startsWith("hev1") ? { format: "annexb" } : undefined,
 				};
@@ -338,6 +341,7 @@ export class Encoder {
 		// Try software encoding.
 		for (const codec of SOFTWARE_CODECS) {
 			if (!codec.startsWith(required)) continue;
+			const isH264 = codec.startsWith("avc1") || codec.startsWith("avc3");
 
 			const software: VideoEncoderConfig = {
 				codec,
@@ -345,7 +349,7 @@ export class Encoder {
 				height: dimensions.height,
 				latencyMode: "realtime",
 				hardwareAcceleration: "prefer-software",
-				avc: codec.startsWith("avc1") ? { format: "annexb" } : undefined,
+				avc: isH264 ? { format: "annexb" } : undefined,
 				// @ts-expect-error Typescript needs to be updated.
 				hevc: codec.startsWith("hev1") ? { format: "annexb" } : undefined,
 			};
