@@ -12,6 +12,7 @@
 //! - **Codec support**: Integration with common audio/video codecs
 //! - **Container**: A simple timestamped container format.
 //! - **CMAF Import**: Convert a fMP4 file into a hang broadcast.
+//! - **HLS Import**: Reusable HLS/CMAF ingest logic via [`hls`].
 //!
 mod error;
 mod model;
@@ -20,6 +21,7 @@ pub mod annexb;
 pub mod catalog;
 pub mod cmaf;
 pub mod feedback;
+pub mod hls;
 
 // export the moq-lite version in use
 pub use moq_lite;

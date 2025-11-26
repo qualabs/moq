@@ -41,6 +41,12 @@ pub struct Import {
 	// The timestamp of the last keyframe for each track
 	last_keyframe: HashMap<u32, Timestamp>,
 
+	// The base timestamp for each track, used to normalize timestamps so that
+	// playback starts at zero and remains monotonic even when upstream PTS
+	// values have large offsets or jitter. This improves robustness for
+	// HLS/CMAF ingest without requiring player-side hacks.
+	base_timestamp: HashMap<u32, Timestamp>,
+
 	// The moov atom at the start of the file.
 	moov: Option<Moov>,
 
@@ -58,12 +64,27 @@ impl Import {
 		let catalog = Catalog::default().produce();
 		broadcast.insert_track(catalog.consumer.track);
 
+		Self::from_parts(broadcast, catalog.producer)
+	}
+
+	/// Create an importer that reuses an existing catalog.
+	pub fn with_catalog(broadcast: BroadcastProducer, catalog: CatalogProducer) -> Self {
+		Self::from_parts(broadcast, catalog)
+	}
+
+	/// Clone the catalog handle so other ingest pipelines can contribute to it.
+	pub fn catalog(&self) -> CatalogProducer {
+		self.catalog.clone()
+	}
+
+	fn from_parts(broadcast: BroadcastProducer, catalog: CatalogProducer) -> Self {
 		Self {
 			buffer: BytesMut::new(),
 			broadcast,
-			catalog: catalog.producer,
+			catalog,
 			tracks: HashMap::default(),
 			last_keyframe: HashMap::default(),
+			base_timestamp: HashMap::default(),
 			moov: None,
 			moof: None,
 			moof_size: 0,
@@ -465,6 +486,8 @@ impl Import {
 				.as_ref()
 				.and_then(|mvex| mvex.trex.iter().find(|trex| trex.track_id == track_id));
 
+			let mut first_audio_sample_in_fragment = true;
+
 			// The moov contains some defaults
 			let default_sample_duration = trex.map(|trex| trex.default_sample_duration).unwrap_or_default();
 			let default_sample_size = trex.map(|trex| trex.default_sample_size).unwrap_or_default();
@@ -511,7 +534,15 @@ impl Import {
 					if micros > u64::MAX as u128 {
 						micros = u64::MAX as u128;
 					}
-					let timestamp = Timestamp::from_micros(micros.try_into().unwrap_or(u64::MAX));
+
+					// Normalize timestamps per track so playback starts near zero and remains
+					// monotonic even when upstream PTS includes large offsets or jitter.
+					let raw_timestamp = Timestamp::from_micros(micros.try_into().unwrap_or(u64::MAX));
+					let base = self
+						.base_timestamp
+						.entry(track_id)
+						.or_insert(raw_timestamp);
+					let timestamp = raw_timestamp.checked_sub(*base).unwrap_or_default();
 
 					if offset + size > mdat.len() {
 						return Err(Error::InvalidOffset);
@@ -533,18 +564,15 @@ impl Import {
 							false
 						}
 					} else {
-						match self.last_keyframe.get(&track_id) {
-							// Force an audio keyframe at least every 10 seconds, but ideally at video keyframes
-							Some(prev) => timestamp
-								.checked_sub(*prev)
-								.map(|diff| diff > Duration::from_secs(10))
-								.unwrap_or(true),
-							None => true,
-						}
+						let needs_keyframe = !self.last_keyframe.contains_key(&track_id);
+						let keyframe = first_audio_sample_in_fragment || needs_keyframe;
+						first_audio_sample_in_fragment = false;
+						keyframe
 					};
 
 					if keyframe {
 						self.last_keyframe.insert(track_id, timestamp);
+						tracing::debug!(track_id, ?timestamp, "audio keyframe");
 					}
 
 					let payload = mdat.slice(offset..(offset + size));

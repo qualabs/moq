@@ -3,7 +3,7 @@ use std::sync::Arc;
 /// Error types for the hang media library.
 ///
 /// This enum represents all possible errors that can occur when working with
-/// hang media streams, codecs, and containers.
+/// hang media streams, codecs, containers, and ingest pipelines.
 #[derive(Debug, thiserror::Error, Clone)]
 pub enum Error {
 	/// An error from the underlying MoQ transport layer.
@@ -53,6 +53,10 @@ pub enum Error {
 	/// Failed to decode hexadecimal data.
 	#[error("hex error: {0}")]
 	Hex(#[from] hex::FromHexError),
+
+	/// Error during HLS ingest or processing.
+	#[error("hls error: {0}")]
+	Hls(String),
 }
 
 /// A Result type alias for hang operations.

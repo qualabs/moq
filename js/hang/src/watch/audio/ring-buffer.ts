@@ -4,6 +4,7 @@ export class AudioRingBuffer {
 	#buffer: Float32Array[];
 	#writeIndex = 0;
 	#readIndex = 0;
+	#origin?: Time.Micro;
 
 	readonly rate: number;
 	readonly channels: number;
@@ -41,7 +42,15 @@ export class AudioRingBuffer {
 	write(timestamp: Time.Micro, data: Float32Array[]): void {
 		if (data.length !== this.channels) throw new Error("wrong number of channels");
 
-		let start = Math.round(Time.Second.fromMicro(timestamp) * this.rate);
+		// Use a local origin so we don't depend on absolute timestamps, which may
+		// include large offsets from HLS/CMAF sources. This keeps indices small
+		// and avoids treating the initial samples as \"too old\".
+		if (this.#origin === undefined) {
+			this.#origin = timestamp;
+		}
+
+		const rel = (timestamp - this.#origin) as Time.Micro;
+		let start = Math.round(Time.Second.fromMicro(rel) * this.rate);
 		let samples = data[0].length;
 
 		// Ignore samples that are too old (before the read index)
@@ -105,7 +114,17 @@ export class AudioRingBuffer {
 
 	read(output: Float32Array[]): number {
 		if (output.length !== this.channels) throw new Error("wrong number of channels");
-		if (this.#refill) return 0;
+
+		// Stay in refill mode until we have at least one full render quantum
+		// worth of samples ready. This prevents early underflows when starting
+		// playback or after large gaps.
+		if (this.#refill) {
+			const available = this.#writeIndex - this.#readIndex;
+			if (available < output[0].length) {
+				return 0;
+			}
+			this.#refill = false;
+		}
 
 		const samples = Math.min(this.#writeIndex - this.#readIndex, output[0].length);
 		if (samples === 0) return 0;
