@@ -5,13 +5,14 @@
 //! independent of any particular HTTP client; callers provide an implementation
 //! of [`HlsFetcher`] to perform the actual network I/O.
 
+use std::collections::HashMap;
 use std::future::Future;
 use std::pin::Pin;
 use std::time::Duration;
 
 use bytes::Bytes;
 use m3u8_rs::{
-	AlternativeMedia, AlternativeMediaType, Map, MasterPlaylist, MediaPlaylist, MediaSegment, VariantStream,
+	AlternativeMedia, AlternativeMediaType, Map, MasterPlaylist, MediaPlaylist, MediaSegment, Resolution, VariantStream,
 };
 use tracing::{debug, info, warn};
 use url::Url;
@@ -27,6 +28,9 @@ pub struct HlsConfig {
 	pub preroll_segments: usize,
 	/// Fraction of target duration to wait after new data is ingested.
 	pub refresh_ratio: f32,
+	/// Optional list of allowed output resolutions (width, height).
+	/// When set, only variants matching these resolutions will be ingested.
+	pub allowed_resolutions: Option<Vec<(u32, u32)>>,
 }
 
 impl HlsConfig {
@@ -35,6 +39,7 @@ impl HlsConfig {
 			playlist,
 			preroll_segments,
 			refresh_ratio,
+			allowed_resolutions: None,
 		}
 	}
 }
@@ -229,8 +234,30 @@ impl<F: HlsFetcher> HlsIngest<F> {
 
 		let body = self.fetch_bytes(&self.cfg.playlist).await?;
 		if let Ok((_, master)) = m3u8_rs::parse_master_playlist(&body) {
-			let variants = select_variants(&master);
+			let mut variants = select_variants(&master);
 			if !variants.is_empty() {
+				// Optionally filter by explicitly allowed resolutions.
+				if let Some(ref allowed) = self.cfg.allowed_resolutions {
+					let original = variants.clone();
+					variants.retain(|variant| {
+						if let Some(Resolution { width, height }) = variant.resolution {
+							allowed
+								.iter()
+								.any(|(w, h)| *w == width as u32 && *h == height as u32)
+						} else {
+							false
+						}
+					});
+
+					if variants.is_empty() {
+						warn!(
+							?allowed,
+							"no HLS variants matched requested resolutions; falling back to all H.264 renditions"
+						);
+						variants = original;
+					}
+				}
+
 				// Create a video track state for every usable variant.
 				for variant in &variants {
 					let video_url = resolve_uri(&self.cfg.playlist, &variant.uri)
@@ -468,11 +495,81 @@ fn select_audio<'a>(master: &'a MasterPlaylist, group_id: &str) -> Option<&'a Al
 }
 
 fn select_variants<'a>(master: &'a MasterPlaylist) -> Vec<&'a VariantStream> {
-	master
+	// Helper to extract the first video codec token from the CODECS attribute.
+	fn first_video_codec(variant: &VariantStream) -> Option<&str> {
+		let codecs = variant.codecs.as_deref()?;
+		codecs
+			.split(',')
+			.map(|s| s.trim())
+			.find(|s| !s.is_empty())
+	}
+
+	// Map codec strings into a coarse "family" so we can prefer H.264 over others.
+	fn codec_family(codec: &str) -> Option<&'static str> {
+		if codec.starts_with("avc1.") || codec.starts_with("avc3.") {
+			Some("h264")
+		} else {
+			None
+		}
+	}
+
+	// Consider only non-i-frame variants with a URI and a known codec family.
+	let candidates: Vec<(&VariantStream, &str, &str)> = master
 		.variants
 		.iter()
 		.filter(|variant| !variant.is_i_frame && !variant.uri.is_empty())
-		.collect()
+		.filter_map(|variant| {
+			let codec = first_video_codec(variant)?;
+			let family = codec_family(codec)?;
+			Some((variant, codec, family))
+		})
+		.collect();
+
+	if candidates.is_empty() {
+		return Vec::new();
+	}
+
+	// Prefer families in this order, falling back to the first available.
+	const FAMILY_PREFERENCE: &[&str] = &["h264", "h265", "vp9", "av1"];
+
+	let families_present: Vec<&str> = candidates.iter().map(|(_, _, fam)| *fam).collect();
+
+	let target_family = FAMILY_PREFERENCE
+		.iter()
+		.find(|fav| families_present.iter().any(|fam| fam == *fav))
+		.copied()
+		.unwrap_or(families_present[0]);
+
+	// Keep only variants in the chosen family.
+	let family_variants: Vec<&VariantStream> = candidates
+		.into_iter()
+		.filter(|(_, _, fam)| *fam == target_family)
+		.map(|(variant, _, _)| variant)
+		.collect();
+
+	// Deduplicate by resolution, keeping the lowest-bandwidth variant for each size.
+	let mut by_resolution: HashMap<Option<Resolution>, &VariantStream> = HashMap::new();
+
+	for variant in family_variants {
+		let key = variant.resolution;
+		let bandwidth = variant.average_bandwidth.unwrap_or(variant.bandwidth);
+
+		use std::collections::hash_map::Entry;
+		match by_resolution.entry(key) {
+			Entry::Vacant(entry) => {
+				entry.insert(variant);
+			}
+			Entry::Occupied(mut entry) => {
+				let existing = entry.get();
+				let existing_bw = existing.average_bandwidth.unwrap_or(existing.bandwidth);
+				if bandwidth < existing_bw {
+					entry.insert(variant);
+				}
+			}
+		}
+	}
+
+	by_resolution.values().cloned().collect()
 }
 
 fn resolve_uri(base: &Url, value: &str) -> std::result::Result<Url, url::ParseError> {

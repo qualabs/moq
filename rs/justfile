@@ -107,6 +107,16 @@ pub name url="http://localhost:4443/anon" *args:
 		-f mp4 -movflags cmaf+separate_moof+delay_moov+skip_trailer+frag_every_frame \
 		- | cargo run --bin hang -- publish --url "{{url}}" --name "{{name}}" {{args}}
 
+# Ingest a live HLS media playlist and publish it via hang (full ladder).
+ingest-hls url name="demo" relay="http://localhost:4443/anon":
+	cargo run --bin hang -- publish --url "{{relay}}" --name "{{name}}" --format hls --hls-url "{{url}}"
+
+# Ingest HLS with interactive ffprobe-based resolution selection (advanced).
+# Examples:
+#   just ingest-hls-interactive http://localhost:8000/master.m3u8 bbb
+#   just ingest-hls-interactive http://localhost:8000/master.m3u8 bbb -- --hls-resolution 1920x1080
+ingest-hls-interactive url name="demo" relay="http://localhost:4443/anon" *args:
+	cargo run --bin hang -- publish --url "{{relay}}" --name "{{name}}" --format hls --hls-url "{{url}}" --hls-interactive {{args}}
 
 # Publish a video using ffmpeg directly from hang to the localhost
 serve name:

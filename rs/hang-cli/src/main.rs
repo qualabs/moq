@@ -5,6 +5,7 @@ mod server;
 
 use std::path::PathBuf;
 
+use crate::hls::HlsResolution;
 use client::*;
 use import::*;
 use server::*;
@@ -85,12 +86,41 @@ pub struct HlsArgs {
 	/// Fraction of target duration to wait after new data is ingested.
 	#[arg(long, default_value_t = 0.5)]
 	hls_refresh_ratio: f32,
+
+	/// Enable interactive ffprobe-based selection of HLS resolutions.
+	///
+	/// When set, `ffprobe` is run against `--hls-url` and you can choose which
+	/// video renditions (by resolution) to ingest. When not set, the full
+	/// H.264 ladder is ingested by default or any resolutions explicitly
+	/// provided via `--hls-resolution`.
+	#[arg(long, default_value_t = false)]
+	hls_interactive: bool,
+
+	/// Limit HLS ingest to specific output resolutions (WxH), repeatable.
+	/// Example: --hls-resolution 1920x1080 --hls-resolution 1280x720
+	#[arg(long = "hls-resolution", value_name = "WxH")]
+	hls_resolutions: Vec<HlsResolution>,
 }
 
 impl HlsArgs {
-	fn into_config(self) -> Option<HlsConfig> {
-		self.hls_url
-			.map(|url| HlsConfig::new(url, self.hls_preroll, self.hls_refresh_ratio))
+	fn into_config(&self) -> Option<HlsConfig> {
+		let mut cfg = self
+			.hls_url
+			.as_ref()
+			.map(|url| HlsConfig::new(url.clone(), self.hls_preroll, self.hls_refresh_ratio));
+
+		if let Some(cfg) = cfg.as_mut() {
+			if !self.hls_resolutions.is_empty() {
+				let list = self
+					.hls_resolutions
+					.iter()
+					.map(|r| (r.width, r.height))
+					.collect();
+				cfg.allowed_resolutions = Some(list);
+			}
+		}
+
+		cfg
 	}
 }
 
@@ -106,13 +136,29 @@ async fn main() -> anyhow::Result<()> {
 			name,
 			format,
 			hls,
-		} => server(config, name, dir, format, hls.into_config(), &mut tokio::io::stdin()).await,
+		} => {
+			let mut hls = hls;
+			if format == ImportType::Hls && hls.hls_interactive {
+				if let Some(url) = &hls.hls_url {
+					hls::run_ffprobe_and_select(url, &mut hls.hls_resolutions)?;
+				}
+			}
+			server(config, name, dir, format, hls.into_config(), &mut tokio::io::stdin()).await
+		}
 		Command::Publish {
 			config,
 			url,
 			name,
 			format,
 			hls,
-		} => client(config, url, name, format, hls.into_config(), &mut tokio::io::stdin()).await,
+		} => {
+			let mut hls = hls;
+			if format == ImportType::Hls && hls.hls_interactive {
+				if let Some(url) = &hls.hls_url {
+					hls::run_ffprobe_and_select(url, &mut hls.hls_resolutions)?;
+				}
+			}
+			client(config, url, name, format, hls.into_config(), &mut tokio::io::stdin()).await
+		}
 	}
 }

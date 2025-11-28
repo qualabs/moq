@@ -71,9 +71,18 @@ leaf:
 pub name url='http://localhost:4443/anon' *args:
 	cd rs && just pub {{name}} {{url}} {{args}}
 
-# Ingest a live HLS media playlist and publish it via hang.
+# Ingest a live HLS media playlist and publish it via hang (full ladder).
+# Thin wrapper around the Rust justfile recipe.
 ingest-hls url name='demo' relay='http://localhost:4443/anon':
-	cd rs && cargo run --bin hang -- publish --url {{relay}} --name {{name}} --format hls --hls-url {{url}}
+	cd rs && just ingest-hls {{url}} {{name}} {{relay}}
+
+# Ingest HLS with interactive ffprobe-based resolution selection (advanced).
+# Thin wrapper around the Rust justfile recipe.
+# Examples:
+#   just ingest-hls-interactive http://localhost:8000/master.m3u8 bbb
+#   just ingest-hls-interactive http://localhost:8000/master.m3u8 bbb -- --hls-resolution 1920x1080
+ingest-hls-interactive url name='demo' relay='http://localhost:4443/anon' *args:
+	cd rs && just ingest-hls-interactive {{url}} {{name}} {{relay}} {{args}}
 
 # Publish/subscribe using gstreamer - see https://github.com/kixelated/hang-gst
 pub-gst name url='http://localhost:4443/anon':
