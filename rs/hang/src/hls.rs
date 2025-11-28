@@ -65,15 +65,18 @@ pub struct HlsIngest<F: HlsFetcher> {
 	/// the same `catalog.json` track.
 	shared_catalog: Option<CatalogProducer>,
 
-	/// CMAF importer for the selected video rendition, if any.
-	video_importer: Option<cmaf::Import>,
+	/// CMAF importers for each discovered video rendition.
+	/// Each importer feeds a separate MoQ track but shares the same catalog.
+	video_importers: Vec<cmaf::Import>,
 
 	/// CMAF importer for the selected audio rendition, if any.
 	audio_importer: Option<cmaf::Import>,
 
 	fetcher: F,
 	cfg: HlsConfig,
-	video: Option<TrackState>,
+	/// All discovered video variants (one per HLS rendition).
+	video: Vec<TrackState>,
+	/// Optional audio track shared across variants.
 	audio: Option<TrackState>,
 }
 
@@ -102,11 +105,11 @@ impl<F: HlsFetcher> HlsIngest<F> {
 		Self {
 			broadcast,
 			shared_catalog: None,
-			video_importer: None,
+			video_importers: Vec::new(),
 			audio_importer: None,
 			fetcher,
 			cfg,
-			video: None,
+			video: Vec::new(),
 			audio: None,
 		}
 	}
@@ -117,25 +120,30 @@ impl<F: HlsFetcher> HlsIngest<F> {
 
 		let mut buffered = 0usize;
 
-		if let Some(url) = self.video.as_ref().map(|track| track.playlist.clone()) {
+		// Prime all discovered video variants.
+		//
+		// Move the video track states out of `self` so we can safely mutate both
+		// the ingest and the tracks without running into borrow checker issues.
+		let video_tracks = std::mem::take(&mut self.video);
+		for (index, mut track) in video_tracks.into_iter().enumerate() {
+			let url = track.playlist.clone();
 			let playlist = self.fetch_media_playlist(&url).await?;
-			if let Some(mut track) = self.video.take() {
-				let count = self
-					.consume_segments(&mut track, &playlist, Some(self.cfg.preroll_segments))
-					.await?;
-				self.video = Some(track);
-				buffered += count;
-			}
+			let count = self
+				.consume_segments(index, &mut track, &playlist, Some(self.cfg.preroll_segments))
+				.await?;
+			buffered += count;
+			self.video.push(track);
 		}
 
+		// Prime the shared audio track, if any.
 		if let Some(url) = self.audio.as_ref().map(|track| track.playlist.clone()) {
 			let playlist = self.fetch_media_playlist(&url).await?;
 			if let Some(mut track) = self.audio.take() {
 				let count = self
-					.consume_segments(&mut track, &playlist, Some(self.cfg.preroll_segments))
+					.consume_segments(usize::MAX, &mut track, &playlist, Some(self.cfg.preroll_segments))
 					.await?;
-				self.audio = Some(track);
 				buffered += count;
+				self.audio = Some(track);
 			}
 		}
 
@@ -159,25 +167,32 @@ impl<F: HlsFetcher> HlsIngest<F> {
 		let mut wrote = 0usize;
 		let mut target_duration = None;
 
-		if let Some(url) = self.video.as_ref().map(|track| track.playlist.clone()) {
+		// Ingest a step from all active video variants.
+		let video_tracks = std::mem::take(&mut self.video);
+		for (index, mut track) in video_tracks.into_iter().enumerate() {
+			let url = track.playlist.clone();
 			let playlist = self.fetch_media_playlist(&url).await?;
-			target_duration = Some(playlist.target_duration);
-			if let Some(mut track) = self.video.take() {
-				let count = self.consume_segments(&mut track, &playlist, None).await?;
-				self.video = Some(track);
-				wrote += count;
+			// Use the first video's target duration as the base.
+			if target_duration.is_none() {
+				target_duration = Some(playlist.target_duration);
 			}
+			let count = self.consume_segments(index, &mut track, &playlist, None).await?;
+			wrote += count;
+			self.video.push(track);
 		}
 
+		// Ingest from the shared audio track, if present.
 		if let Some(url) = self.audio.as_ref().map(|track| track.playlist.clone()) {
 			let playlist = self.fetch_media_playlist(&url).await?;
 			if target_duration.is_none() {
 				target_duration = Some(playlist.target_duration);
 			}
 			if let Some(mut track) = self.audio.take() {
-				let count = self.consume_segments(&mut track, &playlist, None).await?;
-				self.audio = Some(track);
+				let count = self
+					.consume_segments(usize::MAX, &mut track, &playlist, None)
+					.await?;
 				wrote += count;
+				self.audio = Some(track);
 			}
 		}
 
@@ -207,57 +222,64 @@ impl<F: HlsFetcher> HlsIngest<F> {
 	}
 
 	async fn ensure_tracks(&mut self) -> Result<()> {
-		if self.video.is_some() {
+		// Tracks already discovered.
+		if !self.video.is_empty() {
 			return Ok(());
 		}
 
 		let body = self.fetch_bytes(&self.cfg.playlist).await?;
 		if let Ok((_, master)) = m3u8_rs::parse_master_playlist(&body) {
-			if let Some(variant) = select_variant(&master) {
-				let video_url = resolve_uri(&self.cfg.playlist, &variant.uri)
-					.map_err(|err| Error::Hls(format!("failed to resolve video rendition URL: {err}")))?;
-				self.video = Some(TrackState::new("video", video_url));
+			let variants = select_variants(&master);
+			if !variants.is_empty() {
+				// Create a video track state for every usable variant.
+				for variant in &variants {
+					let video_url = resolve_uri(&self.cfg.playlist, &variant.uri)
+						.map_err(|err| Error::Hls(format!("failed to resolve video rendition URL: {err}")))?;
+					self.video.push(TrackState::new("video", video_url));
+				}
 
-				if let Some(group_id) = variant.audio.as_deref() {
-					if let Some(audio_tag) = select_audio(&master, group_id) {
-						if let Some(uri) = &audio_tag.uri {
-							let audio_url = resolve_uri(&self.cfg.playlist, uri).map_err(|err| {
-								Error::Hls(format!("failed to resolve audio rendition URL: {err}"))
-							})?;
-							self.audio = Some(TrackState::new("audio", audio_url));
+				// Choose an audio rendition based on the first variant with an audio group.
+				if let Some(variant) = variants.iter().find(|v| v.audio.is_some()) {
+					if let Some(group_id) = variant.audio.as_deref() {
+						if let Some(audio_tag) = select_audio(&master, group_id) {
+							if let Some(uri) = &audio_tag.uri {
+								let audio_url = resolve_uri(&self.cfg.playlist, uri).map_err(|err| {
+									Error::Hls(format!("failed to resolve audio rendition URL: {err}"))
+								})?;
+								self.audio = Some(TrackState::new("audio", audio_url));
+							} else {
+								warn!(%group_id, "audio rendition missing URI");
+							}
 						} else {
-							warn!(%group_id, "audio rendition missing URI");
+							warn!(%group_id, "audio group not found in master playlist");
 						}
-					} else {
-						warn!(%group_id, "audio group not found in master playlist");
 					}
 				}
 
 				let audio_url = self.audio.as_ref().map(|a| a.playlist.to_string());
-				if let Some(selected) = self.video.as_ref() {
-					info!(
-						video = %selected.playlist,
-						audio = audio_url.as_deref().unwrap_or("none"),
-						bandwidth = variant.bandwidth,
-						"selected master playlist renditions"
-					);
-				}
+				info!(
+					video_variants = variants.len(),
+					audio = audio_url.as_deref().unwrap_or("none"),
+					"selected master playlist renditions"
+				);
+
 				return Ok(());
 			}
 		}
 
-		// Fallback: treat the provided URL as a media playlist.
-		self.video = Some(TrackState::new("video", self.cfg.playlist.clone()));
+		// Fallback: treat the provided URL as a single media playlist.
+		self.video.push(TrackState::new("video", self.cfg.playlist.clone()));
 		Ok(())
 	}
 
 	async fn consume_segments(
 		&mut self,
+		index: usize,
 		track: &mut TrackState,
 		playlist: &MediaPlaylist,
 		limit: Option<usize>,
 	) -> Result<usize> {
-		self.ensure_init_segment(track, playlist).await?;
+		self.ensure_init_segment(index, track, playlist).await?;
 
 		let mut consumed = 0usize;
 		let mut sequence = playlist.media_sequence;
@@ -275,7 +297,7 @@ impl<F: HlsFetcher> HlsIngest<F> {
 				break;
 			}
 
-			self.push_segment(track, segment, sequence).await?;
+			self.push_segment(index, track, segment, sequence).await?;
 			consumed += 1;
 			sequence += 1;
 		}
@@ -287,7 +309,12 @@ impl<F: HlsFetcher> HlsIngest<F> {
 		Ok(consumed)
 	}
 
-	async fn ensure_init_segment(&mut self, track: &mut TrackState, playlist: &MediaPlaylist) -> Result<()> {
+	async fn ensure_init_segment(
+		&mut self,
+		index: usize,
+		track: &mut TrackState,
+		playlist: &MediaPlaylist,
+	) -> Result<()> {
 		if track.init_ready {
 			return Ok(());
 		}
@@ -303,7 +330,7 @@ impl<F: HlsFetcher> HlsIngest<F> {
 			Err(err) => return Err(err),
 		};
 		let importer = match track.label {
-			"video" => self.ensure_video_importer()?,
+			"video" => self.ensure_video_importer_for(index)?,
 			"audio" => self.ensure_audio_importer()?,
 			_ => unreachable!("unexpected HLS track label"),
 		};
@@ -317,7 +344,13 @@ impl<F: HlsFetcher> HlsIngest<F> {
 		Ok(())
 	}
 
-	async fn push_segment(&mut self, track: &mut TrackState, segment: &MediaSegment, sequence: u64) -> Result<()> {
+	async fn push_segment(
+		&mut self,
+		index: usize,
+		track: &mut TrackState,
+		segment: &MediaSegment,
+		sequence: u64,
+	) -> Result<()> {
 		if segment.uri.is_empty() {
 			return Err(Error::Hls("encountered segment with empty URI".to_string()));
 		}
@@ -330,7 +363,7 @@ impl<F: HlsFetcher> HlsIngest<F> {
 		};
 
 		let importer = match track.label {
-			"video" => self.ensure_video_importer()?,
+			"video" => self.ensure_video_importer_for(index)?,
 			"audio" => self.ensure_audio_importer()?,
 			_ => unreachable!("unexpected HLS track label"),
 		};
@@ -351,9 +384,15 @@ impl<F: HlsFetcher> HlsIngest<F> {
 		self.fetcher.fetch_bytes(url).await
 	}
 
-	/// Lazily create or retrieve the CMAF importer for the video rendition.
-	fn ensure_video_importer(&mut self) -> Result<&mut cmaf::Import> {
-		if self.video_importer.is_none() {
+	/// Lazily create or retrieve the CMAF importer for a specific video rendition.
+	///
+	/// Each video variant gets its own importer so that their tracks remain
+	/// independent while still contributing to the same shared catalog.
+	fn ensure_video_importer_for(&mut self, index: usize) -> Result<&mut cmaf::Import> {
+		// Audio paths pass usize::MAX; they should never request a video importer.
+		debug_assert!(index != usize::MAX, "audio track must not use video importer");
+
+		while self.video_importers.len() <= index {
 			let importer = match &self.shared_catalog {
 				// First importer for this broadcast, create a fresh catalog track.
 				None => {
@@ -366,10 +405,13 @@ impl<F: HlsFetcher> HlsIngest<F> {
 				Some(catalog) => cmaf::Import::with_catalog(self.broadcast.clone(), catalog.clone()),
 			};
 
-			self.video_importer = Some(importer);
+			self.video_importers.push(importer);
 		}
 
-		Ok(self.video_importer.as_mut().expect("video_importer must be initialized"))
+		Ok(self
+			.video_importers
+			.get_mut(index)
+			.expect("video_importer must be initialized"))
 	}
 
 	/// Lazily create or retrieve the CMAF importer for the audio rendition.
@@ -395,7 +437,7 @@ impl<F: HlsFetcher> HlsIngest<F> {
 
 	#[cfg(test)]
 	fn has_video_importer(&self) -> bool {
-		self.video_importer.is_some()
+		!self.video_importers.is_empty()
 	}
 
 	#[cfg(test)]
@@ -425,13 +467,12 @@ fn select_audio<'a>(master: &'a MasterPlaylist, group_id: &str) -> Option<&'a Al
 	default.or(first)
 }
 
-fn select_variant<'a>(master: &'a MasterPlaylist) -> Option<&'a VariantStream> {
+fn select_variants<'a>(master: &'a MasterPlaylist) -> Vec<&'a VariantStream> {
 	master
 		.variants
 		.iter()
 		.filter(|variant| !variant.is_i_frame && !variant.uri.is_empty())
-		.min_by_key(|variant| variant.average_bandwidth.unwrap_or(variant.bandwidth))
-		.or_else(|| master.variants.iter().find(|variant| !variant.uri.is_empty()))
+		.collect()
 }
 
 fn resolve_uri(base: &Url, value: &str) -> std::result::Result<Url, url::ParseError> {

@@ -27,9 +27,34 @@
 		TODO: There's a bug with Big Buck Bunny causing audio to stutter, so we need to increase the latency to 100ms.
 
 	-->
-	<hang-watch url="%VITE_RELAY_URL%" path="bbb" muted controls>
+	<hang-watch id="watch" url="%VITE_RELAY_URL%" path="bbb" latency="5000" muted controls>
 		<canvas style="width: 100%; height: auto; border-radius: 4px; margin: 0 auto;"></canvas>
 	</hang-watch>
+
+	<!-- Simple ABR & latency controls driven via the JS API -->
+	<details style="margin-top: 1rem;">
+		<summary style="cursor: pointer; font-weight: 600;">
+			Advanced options
+		</summary>
+
+		<div style="margin-top: 0.75rem; display: flex; flex-wrap: wrap; gap: 1rem; align-items: center;">
+			<div>
+				<label for="latency-slider">Latency (ms): </label>
+				<input id="latency-slider" type="range" min="0" max="10000" step="250" value="5000" />
+				<span id="latency-label">5000</span>
+			</div>
+
+			<div style="display: inline-flex; align-items: center; gap: 0.5rem;">
+				<label for="quality-select">Quality: </label>
+				<select
+					id="quality-select"
+					class="bg-gray-900 text-gray-100 border border-gray-700 rounded-md px-2 py-1"
+				>
+					<option value="">Auto</option>
+				</select>
+			</div>
+		</div>
+	</details>
 
 	<h3>Other demos:</h3>
 	<ul>

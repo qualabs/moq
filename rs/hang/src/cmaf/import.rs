@@ -6,6 +6,7 @@ use bytes::{Bytes, BytesMut};
 use moq_lite::{BroadcastProducer, Track};
 use mp4_atom::{Any, AsyncReadFrom, Atom, DecodeMaybe, Mdat, Moof, Moov, Tfdt, Trak, Trun};
 use std::{collections::HashMap, time::Duration};
+use std::sync::atomic::{AtomicU32, Ordering};
 use tokio::io::{AsyncRead, AsyncReadExt};
 
 /// Converts fMP4/CMAF files into hang broadcast streams.
@@ -54,6 +55,10 @@ pub struct Import {
 	moof: Option<Moof>,
 	moof_size: usize,
 }
+
+/// Global counters to generate stable, unique track names across all imports.
+static NEXT_VIDEO_TRACK_ID: AtomicU32 = AtomicU32::new(1);
+static NEXT_AUDIO_TRACK_ID: AtomicU32 = AtomicU32::new(1);
 
 impl Import {
 	/// Create a new CMAF importer that will write to the given broadcast.
@@ -130,7 +135,7 @@ impl Import {
 	}
 
 	fn init(&mut self, moov: Moov) -> Result<()> {
-		// Produce the catalog
+		// Produce (or extend) the catalog.
 		let mut video_renditions = HashMap::new();
 		let mut audio_renditions = HashMap::new();
 
@@ -168,23 +173,28 @@ impl Import {
 			self.tracks.insert(track_id, track.into());
 		}
 
-		if !video_renditions.is_empty() {
-			let video = Video {
-				renditions: video_renditions,
-				priority: 2,
-				display: None,
-				rotation: None,
-				flip: None,
-			};
-			self.catalog.set_video(Some(video));
-		}
+		{
+			// Merge newly discovered renditions into the shared catalog.
+			let mut current = self.catalog.update();
 
-		if !audio_renditions.is_empty() {
-			let audio = Audio {
-				renditions: audio_renditions,
-				priority: 2,
-			};
-			self.catalog.set_audio(Some(audio));
+			if !video_renditions.is_empty() {
+				let video = current.video.get_or_insert(Video {
+					renditions: HashMap::new(),
+					priority: 2,
+					display: None,
+					rotation: None,
+					flip: None,
+				});
+				video.renditions.extend(video_renditions);
+			}
+
+			if !audio_renditions.is_empty() {
+				let audio = current.audio.get_or_insert(Audio {
+					renditions: HashMap::new(),
+					priority: 2,
+				});
+				audio.renditions.extend(audio_renditions);
+			}
 		}
 
 		self.catalog.publish();
@@ -195,7 +205,8 @@ impl Import {
 	}
 
 	fn init_video(trak: &Trak) -> Result<(String, VideoConfig)> {
-		let name = format!("video{}", trak.tkhd.track_id);
+		let id = NEXT_VIDEO_TRACK_ID.fetch_add(1, Ordering::Relaxed);
+		let name = format!("video{}", id);
 		let stsd = &trak.mdia.minf.stbl.stsd;
 
 		let codec = match stsd.codecs.len() {
@@ -339,7 +350,8 @@ impl Import {
 	}
 
 	fn init_audio(trak: &Trak) -> Result<(String, AudioConfig)> {
-		let name = format!("audio{}", trak.tkhd.track_id);
+		let id = NEXT_AUDIO_TRACK_ID.fetch_add(1, Ordering::Relaxed);
+		let name = format!("audio{}", id);
 		let stsd = &trak.mdia.minf.stbl.stsd;
 
 		let codec = match stsd.codecs.len() {
