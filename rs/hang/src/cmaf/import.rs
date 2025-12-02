@@ -17,7 +17,7 @@ use tokio::io::{AsyncRead, AsyncReadExt};
 /// ## Supported Codecs
 ///
 /// **Video:**
-/// - H.264 (AVC1/AVC3)
+/// - H.264 (AVC1)
 /// - H.265 (HEVC/HEV1/HVC1)
 /// - VP8
 /// - VP9
@@ -217,7 +217,6 @@ impl Import {
 
 		let config = match codec {
 			mp4_atom::Codec::Avc1(avc1) => Self::init_h264(&avc1.visual, &avc1.avcc)?,
-			mp4_atom::Codec::Avc3(avc3) => Self::init_h264(&avc3.visual, &avc3.avcc)?,
 			mp4_atom::Codec::Hev1(hev1) => Self::init_h265(true, &hev1.hvcc, &hev1.visual)?,
 			mp4_atom::Codec::Hvc1(hvc1) => Self::init_h265(false, &hvc1.hvcc, &hvc1.visual)?,
 			mp4_atom::Codec::Vp08(vp08) => VideoConfig {

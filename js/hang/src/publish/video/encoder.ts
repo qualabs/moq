@@ -172,7 +172,7 @@ export class Encoder {
 		effect.spawn(async () => {
 			const codec = await this.#bestCodec(effect);
 			if (!codec) return;
-			const isH264 = codec.startsWith("avc1") || codec.startsWith("avc3");
+			const isH264 = codec.startsWith("avc1");
 
 			// TARGET BITRATE CALCULATION (h264)
 			// 480p@30 = 1.0mbps
@@ -270,8 +270,6 @@ export class Encoder {
 			"avc1.4D401F",
 			"avc1.42E01E",
 			"avc1",
-			"avc3.64002A",
-			"avc3",
 			// AV1
 			// One day will get moved higher up the list, but hardware decoding is rare.
 			"av01.0.08M.08",
@@ -320,7 +318,7 @@ export class Encoder {
 		if (!isFirefox) {
 			for (const codec of HARDWARE_CODECS) {
 				if (!codec.startsWith(required)) continue;
-				const isH264 = codec.startsWith("avc1") || codec.startsWith("avc3");
+				const isH264 = codec.startsWith("avc1");
 
 				const hardware: VideoEncoderConfig = {
 					codec,
@@ -341,7 +339,7 @@ export class Encoder {
 		// Try software encoding.
 		for (const codec of SOFTWARE_CODECS) {
 			if (!codec.startsWith(required)) continue;
-			const isH264 = codec.startsWith("avc1") || codec.startsWith("avc3");
+			const isH264 = codec.startsWith("avc1");
 
 			const software: VideoEncoderConfig = {
 				codec,
