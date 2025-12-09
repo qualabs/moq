@@ -17,24 +17,6 @@ if (path) {
 	watch.setAttribute("path", path);
 }
 
-// --- Latency slider wiring ---
-const latencySlider = document.getElementById("latency-slider") as HTMLInputElement | null;
-const latencyLabel = document.getElementById("latency-label");
-if (latencySlider && latencyLabel) {
-	// Initialize from element latency if available, otherwise fall back to slider default.
-	const initial = watch.latency.peek() ?? (Number(latencySlider.value) as Time.Milli);
-	latencySlider.value = String(initial);
-	latencyLabel.textContent = String(initial);
-	watch.latency.set(initial);
-
-	latencySlider.addEventListener("input", () => {
-		const value = Number(latencySlider.value);
-		latencyLabel.textContent = String(value);
-		// Slider values are already in milliseconds (0-10000), cast to Time.Milli branded type
-		watch.latency.set(value as Time.Milli);
-	});
-}
-
 // --- Simple ABR selector wiring ---
 const qualitySelect = document.getElementById("quality-select") as HTMLSelectElement | null;
 if (qualitySelect) {
