@@ -70,28 +70,20 @@ pub struct Hls {
 }
 
 #[derive(Debug, Clone, Copy)]
-enum MediaType {
-	Video,
-	Audio,
-}
-
-#[derive(Debug, Clone, Copy)]
 enum TrackKind {
 	Video(usize),
 	Audio,
 }
 
 struct TrackState {
-	media_type: MediaType,
 	playlist: Url,
 	next_sequence: Option<u64>,
 	init_ready: bool,
 }
 
 impl TrackState {
-	fn new(media_type: MediaType, playlist: Url) -> Self {
+	fn new(playlist: Url) -> Self {
 		Self {
-			media_type,
 			playlist,
 			next_sequence: None,
 			init_ready: false,
@@ -257,7 +249,7 @@ impl Hls {
 			// Create a video track state for every usable variant.
 			for variant in &variants {
 				let video_url = resolve_uri(&self.cfg.playlist, &variant.uri)?;
-				self.video.push(TrackState::new(MediaType::Video, video_url));
+				self.video.push(TrackState::new(video_url));
 			}
 
 			// Choose an audio rendition based on the first variant with an audio group.
@@ -265,7 +257,7 @@ impl Hls {
 				if let Some(audio_tag) = select_audio(&master, group_id) {
 					if let Some(uri) = &audio_tag.uri {
 						let audio_url = resolve_uri(&self.cfg.playlist, uri)?;
-						self.audio = Some(TrackState::new(MediaType::Audio, audio_url));
+						self.audio = Some(TrackState::new(audio_url));
 					} else {
 						warn!(%group_id, "audio rendition missing URI");
 					}
@@ -285,8 +277,7 @@ impl Hls {
 		}
 
 		// Fallback: treat the provided URL as a single media playlist.
-		self.video
-			.push(TrackState::new(MediaType::Video, self.cfg.playlist.clone()));
+		self.video.push(TrackState::new(self.cfg.playlist.clone()));
 		Ok(())
 	}
 
@@ -307,7 +298,7 @@ impl Hls {
 		let consumed = playlist.segments.len() - skip;
 
 		if consumed == 0 {
-			debug!(media_type = ?track.media_type, "no fresh HLS segments available");
+			debug!(?kind, "no fresh HLS segments available");
 		}
 
 		Ok(consumed)
@@ -341,7 +332,7 @@ impl Hls {
 		);
 
 		track.init_ready = true;
-		info!(media_type = ?track.media_type, "loaded HLS init segment");
+		info!(?kind, "loaded HLS init segment");
 		Ok(())
 	}
 
