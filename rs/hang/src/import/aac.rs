@@ -1,5 +1,6 @@
 use crate as hang;
 use anyhow::Context;
+use buf_list::BufList;
 use bytes::Buf;
 use moq_lite as moq;
 
@@ -126,10 +127,16 @@ impl Aac {
 		let pts = self.pts(pts)?;
 		let track = self.track.as_mut().context("not initialized")?;
 
+		// Create a BufList at chunk boundaries, potentially avoiding allocations.
+		let mut payload = BufList::new();
+		while !buf.chunk().is_empty() {
+			payload.push_chunk(buf.copy_to_bytes(buf.chunk().len()));
+		}
+
 		let frame = hang::Frame {
 			timestamp: pts,
 			keyframe: true,
-			payload: buf.copy_to_bytes(buf.remaining()),
+			payload,
 		};
 
 		track.write(frame)?;
