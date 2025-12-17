@@ -144,8 +144,11 @@ pub name url="http://localhost:4443/anon" *args:
 		-i "dev/{{name}}.fmp4" \
 		-c copy \
 		-f mp4 -movflags cmaf+separate_moof+delay_moov+skip_trailer+frag_every_frame \
-		- | cargo run --bin hang -- publish --url "{{url}}" --name "{{name}}" {{args}}
+		- | cargo run --bin hang -- publish --url "{{url}}" --name "{{name}}" fmp4 {{args}}
 
+# Ingest a live HLS media playlist and publish it via hang (full ladder).
+pub-hls url name="demo" relay="http://localhost:4443/anon":
+	cargo run --bin hang -- publish --url "{{relay}}" --name "{{name}}" hls --playlist "{{url}}"
 
 # Publish a video using H.264 Annex B format to the localhost relay server
 pub-h264 name url="http://localhost:4443/anon" *args:
@@ -163,11 +166,6 @@ pub-h264 name url="http://localhost:4443/anon" *args:
 		-bsf:v h264_mp4toannexb \
 		-f h264 \
 		- | cargo run --bin hang -- publish --url "{{url}}" --name "{{name}}" --format annex-b {{args}}
-
-# Ingest a live HLS media playlist and publish it via hang (full ladder).
-# Thin wrapper around the Rust justfile recipe.
-pub-hls url name='demo' relay='http://localhost:4443/anon':
-	cd rs && just pub-hls {{url}} {{name}} {{relay}}
 
 # Publish/subscribe using gstreamer - see https://github.com/moq-dev/gstreamer
 pub-gst name url='http://localhost:4443/anon':
