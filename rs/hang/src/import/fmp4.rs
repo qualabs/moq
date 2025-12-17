@@ -1,11 +1,11 @@
 use crate::catalog::{
 	AudioCodec, AudioConfig, Catalog, CatalogProducer, VideoCodec, VideoConfig, AAC, AV1, H264, H265, VP9,
 };
-use crate::{self as hang, Timestamp};
+use crate::{self as hang, import::atom_reader::{AtomEvent, AtomReader}, Timestamp};
 use anyhow::Context;
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 use moq_lite as moq;
-use mp4_atom::{Any, Atom, DecodeMaybe, Mdat, Moof, Moov, Trak};
+use mp4_atom::{Any, Atom, FourCC, Mdat, Moof, Moov, Trak};
 use std::collections::HashMap;
 
 /// Converts fMP4/CMAF files into hang broadcast streams.
@@ -26,8 +26,8 @@ use std::collections::HashMap;
 /// - AAC (MP4A)
 /// - Opus
 pub struct Fmp4 {
-	// Any remaining data from the previous call to parse.
-	buffer: Bytes,
+	// atom reader handling buffering and parsing
+	reader: AtomReader,
 
 	// The broadcast being produced
 	// This `hang` variant includes a catalog.
@@ -48,6 +48,9 @@ pub struct Fmp4 {
 	// The latest moof header
 	moof: Option<Moof>,
 	moof_size: usize,
+
+	// Flags for strict atom ordering
+	seen_moof: bool,
 }
 
 impl Fmp4 {
@@ -60,7 +63,7 @@ impl Fmp4 {
 		broadcast.insert_track(catalog.consumer.track);
 
 		Self {
-			buffer: Bytes::new(),
+			reader: AtomReader::new(),
 			broadcast,
 			catalog: catalog.producer,
 			tracks: HashMap::default(),
@@ -68,66 +71,18 @@ impl Fmp4 {
 			moov: None,
 			moof: None,
 			moof_size: 0,
+			seen_moof: false,
 		}
 	}
 
 	pub fn decode<T: Buf>(&mut self, buf: &mut T) -> anyhow::Result<()> {
-		if !buf.has_remaining() {
-			return Ok(());
-		}
+		self.reader.push(buf);
 
-		// This code is huge because mp4 atom requires the buffer to be continuous.
-		// We'll try to parse buf.chunk() but if it fails, we may need to allocate.
-		if self.buffer.is_empty() {
-			// Try to parse the first chunk of the provided buffer.
-			let mut cursor = std::io::Cursor::new(buf.chunk());
-
-			while let Some(atom) = mp4_atom::Any::decode_maybe(&mut cursor)? {
-				let size = cursor.position() as usize;
-
-				// Process the parsed atom.
-				self.process(atom, size)?;
-
-				// Advance the buffer by the size of the parsed atom.
-				buf.advance(size);
-
-				// Create a new cursor for the next chunk of the buffer.
-				cursor = std::io::Cursor::new(buf.chunk());
+		while let Some(event) = self.reader.next()? {
+			match event {
+				AtomEvent::Atom(atom, size) => self.process(atom, size)?,
+				AtomEvent::Mdat(payload, header_size) => self.process_mdat(payload, header_size)?,
 			}
-
-			// If the buffer is continuous, we can stop here.
-			if buf.chunk().len() == buf.remaining() {
-				return Ok(());
-			}
-
-			// Otherwise we need to allocate to make a continuous buffer.
-			self.buffer = buf.copy_to_bytes(buf.remaining());
-		}
-
-		self.buffer = match std::mem::take(&mut self.buffer).try_into_mut() {
-			Ok(mut buffer) => {
-				// It worked, append the new data to the existing buffer.
-				buffer.put(buf);
-				buffer.freeze()
-			}
-			Err(old) => {
-				// Make a new buffer and append the new data to it.
-				let mut buffer = BytesMut::with_capacity(old.len() + buf.remaining());
-				buffer.put(old);
-				buffer.put(buf);
-				buffer.freeze()
-			}
-		};
-
-		let mut cursor = std::io::Cursor::new(&self.buffer);
-
-		while let Some(atom) = mp4_atom::Any::decode_maybe(&mut cursor)? {
-			let size = cursor.position() as usize;
-
-			self.buffer.advance(size);
-			self.process(atom, size)?;
-
-			cursor = std::io::Cursor::new(&self.buffer);
 		}
 
 		Ok(())
@@ -384,7 +339,9 @@ impl Fmp4 {
 	fn process(&mut self, atom: mp4_atom::Any, size: usize) -> anyhow::Result<()> {
 		match atom {
 			Any::Ftyp(_) | Any::Styp(_) => {
-				// Skip
+				if self.seen_moof {
+					tracing::warn!("styp/ftyp atom received after moof, violating CMAF ordering");
+				}
 			}
 			Any::Moov(moov) => {
 				// Create the broadcast.
@@ -396,13 +353,22 @@ impl Fmp4 {
 					anyhow::bail!("duplicate moof box");
 				}
 
+				// Reset ordering checks for new fragment
+				self.seen_moof = true;
+
 				self.moof = Some(moof);
 				self.moof_size = size;
 			}
-			Any::Mdat(mdat) => {
-				// Extract the samples from the mdat atom.
-				let header_size = size - mdat.data.len();
-				self.extract(mdat, header_size)?;
+			Any::Mdat(_) => {
+				// This path shouldn't be reached if we handle Mdat manually in decode
+				// But Any enum contains Mdat, so we match it.
+				// If we reached here, it means Any::decode was used, which we want to avoid for Mdat.
+				anyhow::bail!("unexpected mdat atom decoded via Any");
+			}
+			Any::Unknown(kind, _) if kind == FourCC::new(b"prft") => {
+				if self.seen_moof {
+					tracing::warn!("prft atom received after moof, violating CMAF ordering");
+				}
 			}
 			_ => {
 				// Skip unknown atoms
@@ -414,10 +380,16 @@ impl Fmp4 {
 	}
 
 	// Extract all frames out of an mdat atom.
-	fn extract(&mut self, mdat: Mdat, header_size: usize) -> anyhow::Result<()> {
-		let mdat = Bytes::from(mdat.data);
+	fn process_mdat(&mut self, mdat_payload: Bytes, header_size: usize) -> anyhow::Result<()> {
+		if !self.seen_moof {
+			tracing::warn!("mdat atom received without preceding moof");
+		}
+
 		let moov = self.moov.as_ref().context("missing moov box")?;
 		let moof = self.moof.take().context("missing moof box")?;
+
+		// Reset seen_moof since we consumed the mdat for this fragment
+		self.seen_moof = false;
 
 		// Keep track of the minimum and maximum timestamp so we can scold the user.
 		// Ideally these should both be the same value.
@@ -485,8 +457,8 @@ impl Fmp4 {
 					let micros = (pts as u128 * 1_000_000 / timescale as u128) as u64;
 					let timestamp = hang::Timestamp::from_micros(micros)?;
 
-					if offset + size > mdat.len() {
-						anyhow::bail!("invalid data offset");
+					if offset + size > mdat_payload.len() {
+						anyhow::bail!("invalid data offset: offset {} + size {} > len {}", offset, size, mdat_payload.len());
 					}
 
 					let keyframe = if trak.mdia.hdlr.handler == b"vide".into() {
@@ -516,7 +488,7 @@ impl Fmp4 {
 						self.last_keyframe.insert(track_id, timestamp);
 					}
 
-					let payload = mdat.slice(offset..(offset + size));
+					let payload = mdat_payload.slice(offset..(offset + size));
 
 					let frame = hang::Frame {
 						timestamp,
