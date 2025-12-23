@@ -147,7 +147,7 @@ pub name url="http://localhost:4443/anon" *args:
 		- | cargo run --bin hang -- publish --url "{{url}}" --name "{{name}}" fmp4 {{args}}
 
 # Generate and ingest an HLS stream from a video file.
-pub-hls name relay="http://localhost:4443/anon":
+pub-hls name passthrough="false" relay="http://localhost:4443/anon":
 	#!/usr/bin/env bash
 	set -euo pipefail
 
@@ -200,7 +200,13 @@ pub-hls name relay="http://localhost:4443/anon":
 		exit 1
 	fi
 
-	echo ">>> Starting HLS ingest from disk: $OUT_DIR/master.m3u8"
+	if [ "{{passthrough}}" = "true" ]; then
+		echo ">>> Starting HLS ingest from disk with passthrough mode: $OUT_DIR/master.m3u8"
+		PASSTHROUGH_FLAG="--passthrough"
+	else
+		echo ">>> Starting HLS ingest from disk: $OUT_DIR/master.m3u8"
+		PASSTHROUGH_FLAG=""
+	fi
 
 	# Trap to clean up ffmpeg on exit
 	cleanup() {
@@ -211,7 +217,7 @@ pub-hls name relay="http://localhost:4443/anon":
 	trap cleanup SIGINT SIGTERM
 
 	# Run hang to ingest from local files
-	cargo run --bin hang -- publish --url "{{relay}}" --name "{{name}}" hls --playlist "$OUT_DIR/master.m3u8"
+	cargo run --bin hang -- publish --url "{{relay}}" --name "{{name}}" hls --playlist "$OUT_DIR/master.m3u8" $PASSTHROUGH_FLAG
 
 # Publish a video using H.264 Annex B format to the localhost relay server
 pub-h264 name url="http://localhost:4443/anon" *args:

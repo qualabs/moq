@@ -11,6 +11,8 @@ use bytes::Bytes;
 use serde::{Deserialize, Serialize};
 use serde_with::{hex::Hex, DisplayFromStr};
 
+use crate::catalog::container::Container;
+
 /// Information about an audio track in the catalog.
 ///
 /// This struct contains a map of renditions (different quality/codec options)
@@ -60,4 +62,9 @@ pub struct AudioConfig {
 	#[serde(default)]
 	#[serde_as(as = "Option<Hex>")]
 	pub description: Option<Bytes>,
+
+	/// Container format for frame encoding.
+	/// Defaults to "legacy" for backward compatibility.
+	#[serde(default)]
+	pub container: Container,
 }

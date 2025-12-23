@@ -1,4 +1,4 @@
-use crate::catalog::{AudioCodec, AudioConfig, CatalogProducer, VideoCodec, VideoConfig, AAC, AV1, H264, H265, VP9};
+use crate::catalog::{AudioCodec, AudioConfig, CatalogProducer, Container, VideoCodec, VideoConfig, AAC, AV1, H264, H265, VP9};
 use crate::{self as hang, Timestamp};
 use anyhow::Context;
 use bytes::{Buf, Bytes, BytesMut};
@@ -44,6 +44,13 @@ pub struct Fmp4 {
 	// The latest moof header
 	moof: Option<Moof>,
 	moof_size: usize,
+
+	/// When true, transport CMAF fragments directly (passthrough mode)
+	/// When false, decompose fragments into individual samples (current behavior)
+	passthrough_mode: bool,
+
+	/// When passthrough_mode is enabled, store raw bytes of moof
+	moof_bytes: Option<Bytes>,
 }
 
 impl Fmp4 {
@@ -61,12 +68,31 @@ impl Fmp4 {
 			moov: None,
 			moof: None,
 			moof_size: 0,
+			passthrough_mode: false,
+			moof_bytes: None,
 		}
 	}
 
+	/// Set passthrough mode for CMAF fragment transport.
+	///
+	/// When enabled, complete fMP4 fragments (moof+mdat) are transported directly
+	/// instead of being decomposed into individual samples.
+	pub fn set_passthrough_mode(&mut self, enabled: bool) {
+		self.passthrough_mode = enabled;
+	}
+
 	pub fn decode<T: Buf + AsRef<[u8]>>(&mut self, buf: &mut T) -> anyhow::Result<()> {
+		// If passthrough mode, we need to extract raw bytes before parsing.
+		let available_bytes = if self.passthrough_mode && buf.has_remaining() {
+			let chunk = buf.chunk();
+			Some(Bytes::copy_from_slice(chunk))
+		} else {
+			None
+		};
+
 		let mut cursor = std::io::Cursor::new(buf);
 		let mut position = 0;
+		let mut bytes_offset = 0;
 
 		while let Some(atom) = mp4_atom::Any::decode_maybe(&mut cursor)? {
 			// Process the parsed atom.
@@ -89,17 +115,51 @@ impl Fmp4 {
 
 					self.moof = Some(moof);
 					self.moof_size = size;
+
+					// If passthrough mode, extract and store raw bytes of moof
+					if let Some(ref bytes) = available_bytes {
+						if bytes_offset + size <= bytes.len() {
+							self.moof_bytes = Some(bytes.slice(bytes_offset..bytes_offset + size));
+						}
+					}
 				}
 				Any::Mdat(mdat) => {
-					// Extract the samples from the mdat atom.
-					let header_size = size - mdat.data.len();
-					self.extract(mdat, header_size)?;
+					if self.passthrough_mode {
+						// Transport complete fragment
+						let moof = self.moof.take().context("missing moof box")?;
+						let moof_bytes = self.moof_bytes.take().context("missing moof bytes")?;
+
+						// Extract mdat bytes
+						let mdat_bytes = if let Some(ref bytes) = available_bytes {
+							if bytes_offset + size <= bytes.len() {
+								bytes.slice(bytes_offset..bytes_offset + size)
+							} else {
+								anyhow::bail!("invalid buffer position for mdat");
+							}
+						} else {
+							anyhow::bail!("missing available bytes in passthrough mode");
+						};
+
+						// Combine moof + mdat into complete fragment
+						let mut fragment_bytes = BytesMut::with_capacity(moof_bytes.len() + mdat_bytes.len());
+						fragment_bytes.extend_from_slice(&moof_bytes);
+						fragment_bytes.extend_from_slice(&mdat_bytes);
+						let fragment = fragment_bytes.freeze();
+
+						self.transport_fragment(fragment, moof)?;
+					} else {
+						// Extract the samples from the mdat atom (existing behavior)
+						let header_size = size - mdat.data.len();
+						self.extract(mdat, header_size)?;
+					}
 				}
 				_ => {
 					// Skip unknown atoms
 					tracing::warn!(?atom, "skipping")
 				}
 			}
+
+			bytes_offset += size;
 		}
 
 		// Advance the buffer by the amount of data that was processed.
@@ -113,6 +173,7 @@ impl Fmp4 {
 	}
 
 	fn init(&mut self, moov: Moov) -> anyhow::Result<()> {
+		let passthrough_mode = self.passthrough_mode;
 		let mut catalog = self.catalog.lock();
 
 		for trak in &moov.trak {
@@ -121,7 +182,7 @@ impl Fmp4 {
 
 			let track = match handler.as_ref() {
 				b"vide" => {
-					let config = Self::init_video(trak)?;
+					let config = Self::init_video_static(trak, passthrough_mode)?;
 
 					let track = moq::Track {
 						name: self.broadcast.track_name("video"),
@@ -138,7 +199,7 @@ impl Fmp4 {
 					track.producer
 				}
 				b"soun" => {
-					let config = Self::init_audio(trak)?;
+					let config = Self::init_audio_static(trak, passthrough_mode)?;
 
 					let track = moq::Track {
 						name: self.broadcast.track_name("audio"),
@@ -166,7 +227,7 @@ impl Fmp4 {
 		Ok(())
 	}
 
-	fn init_video(trak: &Trak) -> anyhow::Result<VideoConfig> {
+	fn init_video_static(trak: &Trak, passthrough_mode: bool) -> anyhow::Result<VideoConfig> {
 		let stsd = &trak.mdia.minf.stbl.stsd;
 
 		let codec = match stsd.codecs.len() {
@@ -199,10 +260,11 @@ impl Fmp4 {
 					display_ratio_width: None,
 					display_ratio_height: None,
 					optimize_for_latency: None,
+					container: if passthrough_mode { Container::Fmp4 } else { Container::Legacy },
 				}
 			}
-			mp4_atom::Codec::Hev1(hev1) => Self::init_h265(true, &hev1.hvcc, &hev1.visual)?,
-			mp4_atom::Codec::Hvc1(hvc1) => Self::init_h265(false, &hvc1.hvcc, &hvc1.visual)?,
+			mp4_atom::Codec::Hev1(hev1) => Self::init_h265_static(true, &hev1.hvcc, &hev1.visual, passthrough_mode)?,
+			mp4_atom::Codec::Hvc1(hvc1) => Self::init_h265_static(false, &hvc1.hvcc, &hvc1.visual, passthrough_mode)?,
 			mp4_atom::Codec::Vp08(vp08) => VideoConfig {
 				codec: VideoCodec::VP8,
 				description: Default::default(),
@@ -214,6 +276,7 @@ impl Fmp4 {
 				display_ratio_width: None,
 				display_ratio_height: None,
 				optimize_for_latency: None,
+				container: if passthrough_mode { Container::Fmp4 } else { Container::Legacy },
 			},
 			mp4_atom::Codec::Vp09(vp09) => {
 				// https://github.com/gpac/mp4box.js/blob/325741b592d910297bf609bc7c400fc76101077b/src/box-codecs.js#L238
@@ -240,6 +303,7 @@ impl Fmp4 {
 					optimize_for_latency: None,
 					bitrate: None,
 					framerate: None,
+					container: if passthrough_mode { Container::Fmp4 } else { Container::Legacy },
 				}
 			}
 			mp4_atom::Codec::Av01(av01) => {
@@ -272,6 +336,7 @@ impl Fmp4 {
 					optimize_for_latency: None,
 					bitrate: None,
 					framerate: None,
+					container: if passthrough_mode { Container::Fmp4 } else { Container::Legacy },
 				}
 			}
 			mp4_atom::Codec::Unknown(unknown) => anyhow::bail!("unknown codec: {:?}", unknown),
@@ -282,7 +347,7 @@ impl Fmp4 {
 	}
 
 	// There's two almost identical hvcc atoms in the wild.
-	fn init_h265(in_band: bool, hvcc: &mp4_atom::Hvcc, visual: &mp4_atom::Visual) -> anyhow::Result<VideoConfig> {
+	fn init_h265_static(in_band: bool, hvcc: &mp4_atom::Hvcc, visual: &mp4_atom::Visual, passthrough_mode: bool) -> anyhow::Result<VideoConfig> {
 		let mut description = BytesMut::new();
 		hvcc.encode_body(&mut description)?;
 
@@ -306,10 +371,11 @@ impl Fmp4 {
 			display_ratio_width: None,
 			display_ratio_height: None,
 			optimize_for_latency: None,
+			container: if passthrough_mode { Container::Fmp4 } else { Container::Legacy },
 		})
 	}
 
-	fn init_audio(trak: &Trak) -> anyhow::Result<AudioConfig> {
+	fn init_audio_static(trak: &Trak, passthrough_mode: bool) -> anyhow::Result<AudioConfig> {
 		let stsd = &trak.mdia.minf.stbl.stsd;
 
 		let codec = match stsd.codecs.len() {
@@ -338,6 +404,7 @@ impl Fmp4 {
 					channel_count: mp4a.audio.channel_count as _,
 					bitrate: Some(bitrate.into()),
 					description: None, // TODO?
+					container: if passthrough_mode { Container::Fmp4 } else { Container::Legacy },
 				}
 			}
 			mp4_atom::Codec::Opus(opus) => {
@@ -347,6 +414,7 @@ impl Fmp4 {
 					channel_count: opus.audio.channel_count as _,
 					bitrate: None,
 					description: None, // TODO?
+					container: if passthrough_mode { Container::Fmp4 } else { Container::Legacy },
 				}
 			}
 			mp4_atom::Codec::Unknown(unknown) => anyhow::bail!("unknown codec: {:?}", unknown),
@@ -487,6 +555,79 @@ impl Fmp4 {
 			if diff > Timestamp::from_millis(1).unwrap() {
 				tracing::warn!("fMP4 introduced {:?} of latency", diff);
 			}
+		}
+
+		Ok(())
+	}
+
+	// Transport a complete CMAF fragment (moof+mdat) directly without decomposing.
+	fn transport_fragment(&mut self, fragment: Bytes, moof: Moof) -> anyhow::Result<()> {
+		let moov = self.moov.as_ref().context("missing moov box")?;
+
+		// Loop over all of the traf boxes in the moof.
+		for traf in &moof.traf {
+			let track_id = traf.tfhd.track_id;
+			let track = self.tracks.get_mut(&track_id).context("unknown track")?;
+
+			// Find the track information in the moov
+			let trak = moov
+				.trak
+				.iter()
+				.find(|trak| trak.tkhd.track_id == track_id)
+				.context("unknown track")?;
+
+			let tfdt = traf.tfdt.as_ref().context("missing tfdt box")?;
+			let dts = tfdt.base_media_decode_time;
+			let timescale = trak.mdia.mdhd.timescale as u64;
+
+			// Convert timestamp from track timescale to microseconds
+			let micros = (dts as u128 * 1_000_000 / timescale as u128) as u64;
+			let timestamp = hang::Timestamp::from_micros(micros)?;
+
+			// Determine keyframe status (reuse logic from extract())
+			let keyframe = if trak.mdia.hdlr.handler == b"vide".into() {
+				// For video, check sample flags in trun entries
+				let mut is_keyframe = false;
+				if let Some(trun) = traf.trun.first() {
+					if let Some(entry) = trun.entries.first() {
+						let tfhd = &traf.tfhd;
+						let flags = entry
+							.flags
+							.unwrap_or(tfhd.default_sample_flags.unwrap_or_default());
+						// https://chromium.googlesource.com/chromium/src/media/+/master/formats/mp4/track_run_iterator.cc#177
+						let keyframe_flag = (flags >> 24) & 0x3 == 0x2; // kSampleDependsOnNoOther
+						let non_sync = (flags >> 16) & 0x1 == 0x1; // kSampleIsNonSyncSample
+						is_keyframe = keyframe_flag && !non_sync;
+
+						if is_keyframe {
+							// Force an audio keyframe on video keyframes
+							for audio in moov.trak.iter().filter(|t| t.mdia.hdlr.handler == b"soun".into()) {
+								self.last_keyframe.remove(&audio.tkhd.track_id);
+							}
+						}
+					}
+				}
+				is_keyframe
+			} else {
+				// For audio, force keyframe every 10 seconds or at video keyframes
+				match self.last_keyframe.get(&track_id) {
+					Some(prev) => timestamp - *prev > Timestamp::from_secs(10).unwrap(),
+					None => true,
+				}
+			};
+
+			if keyframe {
+				self.last_keyframe.insert(track_id, timestamp);
+			}
+
+			// Create frame with entire fragment as payload
+			let frame = hang::Frame {
+				timestamp,
+				keyframe,
+				payload: fragment.clone().into(),
+			};
+
+			track.write(frame)?;
 		}
 
 		Ok(())
