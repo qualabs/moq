@@ -49,7 +49,6 @@ export class Emitter {
 			const paused = effect.get(this.paused);
 			const muted = effect.get(this.muted);
 			const enabled = !paused && !muted;
-			console.log(`[Audio Emitter] Setting source.enabled=${enabled} (paused=${paused}, muted=${muted})`);
 			this.source.enabled.set(enabled);
 		});
 
@@ -63,28 +62,21 @@ export class Emitter {
 		this.#signals.effect((effect) => {
 			const mseAudio = effect.get(this.source.mseAudioElement);
 			if (mseAudio) {
-				console.log("[Audio Emitter] MSE audio element found, setting up volume/mute/pause control");
 				// MSE path: control HTMLAudioElement directly
 				effect.effect(() => {
 					const volume = effect.get(this.volume);
 					const muted = effect.get(this.muted);
 					const paused = effect.get(this.paused);
-					console.log(`[Audio Emitter] Setting volume=${volume}, muted=${muted}, paused=${paused}`);
 					mseAudio.volume = volume;
 					mseAudio.muted = muted;
 					
 					// Control play/pause state
 					if (paused && !mseAudio.paused) {
-						console.log("[Audio Emitter] Pausing audio element (paused=true)");
 						mseAudio.pause();
 					} else if (!paused && mseAudio.paused) {
 						// Resume if paused - try to play even if readyState is low
 						const tryPlay = () => {
 							if (!paused && mseAudio.paused) {
-								console.log("[Audio Emitter] Resuming audio element (paused=false)", {
-									readyState: mseAudio.readyState,
-									buffered: mseAudio.buffered.length > 0 ? `${mseAudio.buffered.length} ranges` : "no ranges",
-								});
 								mseAudio.play().catch(err => console.error("[Audio Emitter] Failed to resume audio:", err));
 							}
 						};

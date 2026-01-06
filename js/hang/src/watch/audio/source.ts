@@ -74,15 +74,10 @@ export class Source {
 		this.#signals.effect((effect) => {
 			const audio = effect.get(catalog)?.audio;
 			this.catalog.set(audio);
-
+			
 			if (audio?.renditions) {
 				const first = Object.entries(audio.renditions).at(0);
 				if (first) {
-					console.log(`[Audio Source] Rendition ${first[0]} from catalog:`, {
-						codec: first[1].codec,
-						container: first[1].container,
-						hasContainer: "container" in first[1],
-					});
 					effect.set(this.active, first[0]);
 					effect.set(this.config, first[1]);
 				}
@@ -107,7 +102,6 @@ export class Source {
 		// Don't create worklet for MSE (fmp4) - browser handles playback directly
 		// The worklet is only needed for WebCodecs path
 		if (config.container === "fmp4") {
-			console.log("[Audio Source] Skipping worklet creation for MSE (fmp4) - browser handles playback directly");
 			return;
 		}
 
@@ -165,37 +159,30 @@ export class Source {
 
 	#runDecoder(effect: Effect): void {
 		const enabled = effect.get(this.enabled);
-		console.log(`[Audio Source] #runDecoder: enabled=${enabled}`);
 		if (!enabled) {
-			console.log(`[Audio Source] #runDecoder: skipping because enabled=false`);
 			return;
 		}
 
 		const catalog = effect.get(this.catalog);
 		if (!catalog) {
-			console.log(`[Audio Source] #runDecoder: skipping because catalog is undefined`);
 			return;
 		}
 
 		const broadcast = effect.get(this.broadcast);
 		if (!broadcast) {
-			console.log(`[Audio Source] #runDecoder: skipping because broadcast is undefined`);
 			return;
 		}
 
 		const config = effect.get(this.config);
 		if (!config) {
-			console.log(`[Audio Source] #runDecoder: skipping because config is undefined`);
 			return;
 		}
 
 		const active = effect.get(this.active);
 		if (!active) {
-			console.log(`[Audio Source] #runDecoder: skipping because active is undefined`);
 			return;
 		}
 
-		console.log(`[Audio Source] #runDecoder: subscribing to track="${active}", container="${config.container}"`);
 		// Route to MSE for CMAF, WebCodecs for legacy/raw
 		if (config.container === "fmp4") {
 			this.#runMSEPath(effect, broadcast, active, config, catalog);
@@ -211,6 +198,13 @@ export class Source {
 		config: Catalog.AudioConfig,
 		catalog: Catalog.Audio,
 	): void {
+		console.log("[Audio Stream] Subscribing to track", {
+			name,
+			codec: config.codec,
+			container: config.container,
+			sampleRate: config.sampleRate,
+			channels: config.numberOfChannels,
+		});
 		// Import MSE source dynamically
 		effect.spawn(async () => {
 			const { SourceMSE } = await import("./source-mse.js");
@@ -248,12 +242,18 @@ export class Source {
 		config: Catalog.AudioConfig,
 		catalog: Catalog.Audio,
 	): void {
+		console.log("[Audio Stream] Subscribing to track", {
+			name,
+			codec: config.codec,
+			container: config.container,
+			sampleRate: config.sampleRate,
+			channels: config.numberOfChannels,
+		});
 		const sub = broadcast.subscribe(name, catalog.priority);
 		effect.cleanup(() => sub.close());
 
 		// Create consumer with slightly less latency than the render worklet to avoid underflowing.
 		// Container defaults to "legacy" via Zod schema for backward compatibility
-		console.log(`[Audio Subscriber] Using container format: ${config.container}`);
 		const consumer = new Frame.Consumer(sub, {
 			latency: Math.max(this.latency.peek() - JITTER_UNDERHEAD, 0) as Time.Milli,
 			container: config.container,

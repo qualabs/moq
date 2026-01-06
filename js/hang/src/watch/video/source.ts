@@ -110,6 +110,14 @@ export class Source {
 			const c = effect.get(catalog)?.video;
 			effect.set(this.catalog, c);
 			effect.set(this.flip, c?.flip);
+
+			if (c) {
+				console.log("[Video Catalog]", {
+					renditions: Object.keys(c.renditions ?? {}),
+					renditionCount: Object.keys(c.renditions ?? {}).length,
+					flip: c.flip,
+				});
+			}
 		});
 
 		this.#signals.effect(this.#runSupported.bind(this));
@@ -126,11 +134,6 @@ export class Source {
 			const supported: Record<string, Catalog.VideoConfig> = {};
 
 			for (const [name, rendition] of Object.entries(renditions)) {
-				console.log(`[Video Source] Rendition ${name} from catalog:`, {
-					codec: rendition.codec,
-					container: rendition.container,
-					hasContainer: "container" in rendition,
-				});
 				const description = rendition.description ? Hex.toBytes(rendition.description) : undefined;
 
 				const { supported: valid } = await VideoDecoder.isConfigSupported({
@@ -206,6 +209,13 @@ export class Source {
 	}
 
 	#runMSEPath(effect: Effect, broadcast: Moq.Broadcast, name: string, config: RequiredDecoderConfig): void {
+		console.log("[Video Stream] Subscribing to track", {
+			name,
+			codec: config.codec,
+			container: config.container,
+			width: config.codedWidth,
+			height: config.codedHeight,
+		});
 		// Import MSE source dynamically to avoid loading if not needed
 		effect.spawn(async () => {
 			const { SourceMSE } = await import("./source-mse.js");
@@ -250,12 +260,18 @@ export class Source {
 	}
 
 	#runWebCodecsPath(effect: Effect, broadcast: Moq.Broadcast, name: string, config: RequiredDecoderConfig): void {
+		console.log("[Video Stream] Subscribing to track", {
+			name,
+			codec: config.codec,
+			container: config.container,
+			width: config.codedWidth,
+			height: config.codedHeight,
+		});
 		const sub = broadcast.subscribe(name, PRIORITY.video); // TODO use priority from catalog
 		effect.cleanup(() => sub.close());
 
 		// Create consumer that reorders groups/frames up to the provided latency.
 		// Container defaults to "legacy" via Zod schema for backward compatibility
-		console.log(`[Video Subscriber] Using container format: ${config.container}`);
 		const consumer = new Frame.Consumer(sub, {
 			latency: this.latency,
 			container: config.container,
