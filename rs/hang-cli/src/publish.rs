@@ -49,7 +49,10 @@ impl Publish {
 				PublishDecoder::Decoder(Box::new(stream))
 			}
 			PublishFormat::Hls { playlist, passthrough } => {
-				tracing::info!(passthrough = *passthrough, "HLS publish preserving original container format.");
+				tracing::info!(
+					passthrough = *passthrough,
+					"HLS publish preserving original container format."
+				);
 				let hls = hang::import::Hls::new(
 					broadcast.clone(),
 					hang::import::HlsConfig {
