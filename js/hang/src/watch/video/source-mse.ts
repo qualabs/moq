@@ -7,9 +7,6 @@ import type * as Time from "../../time";
 import * as Mime from "../../util/mime";
 
 // The types in VideoDecoderConfig that cause a hard reload.
-// ex. codedWidth/Height are optional and can be changed in-band, so we don't want to trigger a reload.
-// This way we can keep the current subscription active.
-// Note: We keep codedWidth/Height as optional for logging, but set them to undefined to avoid reloads.
 type RequiredDecoderConfig = Omit<Catalog.VideoConfig, "codedWidth" | "codedHeight"> &
 	Partial<Pick<Catalog.VideoConfig, "codedWidth" | "codedHeight">>;
 
@@ -83,9 +80,7 @@ export class SourceMSE {
 		this.#video.muted = true; // Required for autoplay
 		document.body.appendChild(this.#video);
 
-		// Note: In live streaming, "waiting" events are common and normal as the video waits for new data
 		this.#video.addEventListener("waiting", () => {
-			// Silently handle - this is expected in live streaming
 		});
 
 		this.#video.addEventListener("ended", () => {
@@ -126,7 +121,6 @@ export class SourceMSE {
 
 				const audioTime = this.#audioElement.currentTime;
 				const diff = Math.abs(current - audioTime);
-				// Only sync if difference is very large (>500ms) to avoid choppiness
 				// This allows some drift but prevents major desync
 				if (diff > 0.5) {
 					const audioBuffered = this.#audioElement.buffered;
