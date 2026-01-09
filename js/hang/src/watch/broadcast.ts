@@ -68,8 +68,7 @@ export class Broadcast {
 		// Connect audio element to video source for synchronization
 		this.signals.effect((eff) => {
 			const audioElement = eff.get(this.audio.mseAudioElement);
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			(this.video as any).setAudioSync?.(audioElement);
+			this.video.setAudioSync?.(audioElement);
 		});
 
 		this.location = new Location.Root(this.#broadcast, this.#catalog, props?.location);

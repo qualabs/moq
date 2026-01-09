@@ -81,7 +81,6 @@ export class SourceMSE {
 		document.body.appendChild(this.#video);
 
 		this.#video.addEventListener("waiting", () => {});
-
 		this.#video.addEventListener("ended", () => {
 			if (!this.#video) return;
 			const videoBuffered = this.#video.buffered;

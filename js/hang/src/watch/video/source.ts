@@ -99,6 +99,9 @@ export class Source {
 
 	#signals = new Effect();
 
+	// Optional method set by MSE path for audio synchronization
+	setAudioSync?(audioElement: HTMLAudioElement | undefined): void;
+
 	constructor(
 		broadcast: Signal<Moq.Broadcast | undefined>,
 		catalog: Signal<Catalog.Root | undefined>,
@@ -251,8 +254,7 @@ export class Source {
 			});
 
 			// Expose method to set audio element for synchronization
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			(this as any).setAudioSync = (audioElement: HTMLAudioElement | undefined) => {
+			this.setAudioSync = (audioElement: HTMLAudioElement | undefined) => {
 				mseSource.setAudioSync(audioElement);
 			};
 
