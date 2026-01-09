@@ -59,9 +59,16 @@ export class SourceMSE {
 
 	#signals = new Effect();
 	#frameCallbackId?: number;
+	#audioElement?: HTMLAudioElement;
+	#lastSyncTime = 0;
 
 	constructor(latency: Signal<Time.Milli>) {
 		this.latency = latency;
+	}
+
+	setAudioSync(audioElement: HTMLAudioElement | undefined): void {
+		this.#audioElement = audioElement;
+		this.#lastSyncTime = 0; // Reset sync timer when audio element changes
 	}
 
 	async initialize(config: RequiredDecoderConfig): Promise<void> {
@@ -106,6 +113,32 @@ export class SourceMSE {
 				const remaining = end - current;
 				if (remaining <= 0.1 && this.#video.paused) {
 					this.#video.play().catch((err) => console.error("[MSE] Failed to resume playback:", err));
+				}
+			}
+
+			// Sync audio to video (very conservative to minimize choppiness)
+			if (this.#audioElement && this.#audioElement.readyState >= HTMLMediaElement.HAVE_METADATA) {
+				const now = performance.now();
+				// Only check sync every 5 seconds to minimize seeks
+				if (now - this.#lastSyncTime < 5000) {
+					return;
+				}
+
+				const audioTime = this.#audioElement.currentTime;
+				const diff = Math.abs(current - audioTime);
+				// Only sync if difference is very large (>500ms) to avoid choppiness
+				// This allows some drift but prevents major desync
+				if (diff > 0.5) {
+					const audioBuffered = this.#audioElement.buffered;
+					if (audioBuffered && audioBuffered.length > 0) {
+						for (let i = 0; i < audioBuffered.length; i++) {
+							if (audioBuffered.start(i) <= current && current <= audioBuffered.end(i)) {
+								this.#audioElement.currentTime = current;
+								this.#lastSyncTime = now;
+								break;
+							}
+						}
+					}
 				}
 			}
 		});

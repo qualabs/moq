@@ -250,6 +250,12 @@ export class Source {
 				eff.set(this.#stats, stats);
 			});
 
+			// Expose method to set audio element for synchronization
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			(this as any).setAudioSync = (audioElement: HTMLAudioElement | undefined) => {
+				mseSource.setAudioSync(audioElement);
+			};
+
 			// Run MSE track
 			try {
 				await mseSource.runTrack(effect, broadcast, name, config);
