@@ -113,6 +113,6 @@ pub struct VideoConfig {
 	pub optimize_for_latency: Option<bool>,
 
 	/// Container format for frame encoding.
-	/// Defaults to "legacy" for backward compatibility.
+	/// Defaults to "native" for backward compatibility.
 	pub container: Container,
 }

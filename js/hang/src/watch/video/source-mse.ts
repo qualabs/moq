@@ -80,8 +80,7 @@ export class SourceMSE {
 		this.#video.muted = true; // Required for autoplay
 		document.body.appendChild(this.#video);
 
-		this.#video.addEventListener("waiting", () => {
-		});
+		this.#video.addEventListener("waiting", () => {});
 
 		this.#video.addEventListener("ended", () => {
 			if (!this.#video) return;
@@ -319,7 +318,7 @@ export class SourceMSE {
 
 		const consumer = new Frame.Consumer(sub, {
 			latency: this.latency,
-			container: "fmp4", // CMAF fragments
+			container: "cmaf", // CMAF fragments
 		});
 		effect.cleanup(() => consumer.close());
 

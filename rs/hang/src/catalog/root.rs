@@ -300,7 +300,7 @@ mod test {
 						"codedHeight": 720,
 						"bitrate": 6000000,
 						"framerate": 30.0,
-						"container": "legacy"
+						"container": "native"
 					}
 				},
 				"priority": 1
@@ -312,7 +312,7 @@ mod test {
 						"sampleRate": 48000,
 						"numberOfChannels": 2,
 						"bitrate": 128000,
-						"container": "legacy"
+						"container": "native"
 					}
 				},
 				"priority": 2
@@ -341,7 +341,7 @@ mod test {
 				bitrate: Some(6_000_000),
 				framerate: Some(30.0),
 				optimize_for_latency: None,
-				container: Container::Legacy,
+				container: Container::Native,
 			},
 		);
 
@@ -354,7 +354,7 @@ mod test {
 				channel_count: 2,
 				bitrate: Some(128_000),
 				description: None,
-				container: Container::Legacy,
+				container: Container::Native,
 			},
 		);
 

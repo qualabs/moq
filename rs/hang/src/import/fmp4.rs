@@ -374,9 +374,9 @@ impl Fmp4 {
 					display_ratio_height: None,
 					optimize_for_latency: None,
 					container: if passthrough_mode {
-						Container::Fmp4
+						Container::Cmaf
 					} else {
-						Container::Legacy
+						Container::Native
 					},
 				}
 			}
@@ -394,9 +394,9 @@ impl Fmp4 {
 				display_ratio_height: None,
 				optimize_for_latency: None,
 				container: if passthrough_mode {
-					Container::Fmp4
+					Container::Cmaf
 				} else {
-					Container::Legacy
+					Container::Native
 				},
 			},
 			mp4_atom::Codec::Vp09(vp09) => {
@@ -425,9 +425,9 @@ impl Fmp4 {
 					bitrate: None,
 					framerate: None,
 					container: if passthrough_mode {
-						Container::Fmp4
+						Container::Cmaf
 					} else {
-						Container::Legacy
+						Container::Native
 					},
 				}
 			}
@@ -462,9 +462,9 @@ impl Fmp4 {
 					bitrate: None,
 					framerate: None,
 					container: if passthrough_mode {
-						Container::Fmp4
+						Container::Cmaf
 					} else {
-						Container::Legacy
+						Container::Native
 					},
 				}
 			}
@@ -506,9 +506,9 @@ impl Fmp4 {
 			display_ratio_height: None,
 			optimize_for_latency: None,
 			container: if passthrough_mode {
-				Container::Fmp4
+				Container::Cmaf
 			} else {
-				Container::Legacy
+				Container::Native
 			},
 		})
 	}
@@ -543,9 +543,9 @@ impl Fmp4 {
 					bitrate: Some(bitrate.into()),
 					description: None, // TODO?
 					container: if passthrough_mode {
-						Container::Fmp4
+						Container::Cmaf
 					} else {
-						Container::Legacy
+						Container::Native
 					},
 				}
 			}
@@ -557,9 +557,9 @@ impl Fmp4 {
 					bitrate: None,
 					description: None, // TODO?
 					container: if passthrough_mode {
-						Container::Fmp4
+						Container::Cmaf
 					} else {
-						Container::Legacy
+						Container::Native
 					},
 				}
 			}

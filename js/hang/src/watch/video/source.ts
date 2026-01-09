@@ -202,8 +202,8 @@ export class Source {
 	}
 
 	#runTrack(effect: Effect, broadcast: Moq.Broadcast, name: string, config: RequiredDecoderConfig): void {
-		// Route to MSE for CMAF, WebCodecs for legacy/raw
-		if (config.container === "fmp4") {
+		// Route to MSE for CMAF, WebCodecs for native/raw
+		if (config.container === "cmaf") {
 			this.#runMSEPath(effect, broadcast, name, config);
 		} else {
 			this.#runWebCodecsPath(effect, broadcast, name, config);
@@ -279,7 +279,7 @@ export class Source {
 		effect.cleanup(() => sub.close());
 
 		// Create consumer that reorders groups/frames up to the provided latency.
-		// Container defaults to "legacy" via Zod schema for backward compatibility
+		// Container defaults to "native" via Zod schema for backward compatibility
 		const consumer = new Frame.Consumer(sub, {
 			latency: this.latency,
 			container: config.container,

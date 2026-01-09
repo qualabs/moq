@@ -176,7 +176,7 @@ export class SourceMSE {
 
 		const consumer = new Frame.Consumer(sub, {
 			latency: this.latency,
-			container: "fmp4", // CMAF fragments
+			container: "cmaf", // CMAF fragments
 		});
 		effect.cleanup(() => consumer.close());
 

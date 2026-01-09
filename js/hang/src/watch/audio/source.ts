@@ -99,9 +99,9 @@ export class Source {
 		const config = effect.get(this.config);
 		if (!config) return;
 
-		// Don't create worklet for MSE (fmp4) - browser handles playback directly
+		// Don't create worklet for MSE (cmaf) - browser handles playback directly
 		// The worklet is only needed for WebCodecs path
-		if (config.container === "fmp4") {
+		if (config.container === "cmaf") {
 			return;
 		}
 
@@ -183,8 +183,8 @@ export class Source {
 			return;
 		}
 
-		// Route to MSE for CMAF, WebCodecs for legacy/raw
-		if (config.container === "fmp4") {
+		// Route to MSE for CMAF, WebCodecs for native/raw
+		if (config.container === "cmaf") {
 			this.#runMSEPath(effect, broadcast, active, config, catalog);
 		} else {
 			this.#runWebCodecsPath(effect, broadcast, active, config, catalog);
@@ -253,7 +253,7 @@ export class Source {
 		effect.cleanup(() => sub.close());
 
 		// Create consumer with slightly less latency than the render worklet to avoid underflowing.
-		// Container defaults to "legacy" via Zod schema for backward compatibility
+		// Container defaults to "native" via Zod schema for backward compatibility
 		const consumer = new Frame.Consumer(sub, {
 			latency: Math.max(this.latency.peek() - JITTER_UNDERHEAD, 0) as Time.Milli,
 			container: config.container,
