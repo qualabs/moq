@@ -1,0 +1,23 @@
+groups:
+  - name: moq_recording_rules
+    interval: 30s
+    rules:
+      # Throughput calculations
+      - record: moq_relay:bytes_sent:rate5m
+        expr: rate(moq_relay_bytes_sent_total[5m])
+      
+      - record: moq_relay:bytes_received:rate5m
+        expr: rate(moq_relay_bytes_received_total[5m])
+      
+      # Latency percentiles
+      - record: moq_client:latency:p95
+        expr: histogram_quantile(0.95, moq_client_latency_seconds_bucket)
+      
+      - record: moq_client:latency:p99
+        expr: histogram_quantile(0.99, moq_client_latency_seconds_bucket)
+      
+      - record: moq_relay:publish_to_delivery:p95
+        expr: histogram_quantile(0.95, moq_relay_publish_to_delivery_seconds_bucket)
+      
+      - record: moq_relay:quic_rtt:p95
+        expr: histogram_quantile(0.95, moq_relay_quic_rtt_seconds_bucket)

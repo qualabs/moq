@@ -1,0 +1,323 @@
+{
+  "title": "MoQ Pipeline Observability",
+  "tags": ["moq", "observability", "pipeline"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 3,
+  "refresh": "5s",
+  "uid": "moq-pipeline",
+  "editable": true,
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Active Streams",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "sum(moq_relay_active_streams) or vector(0)", "refId": "A" }],
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 0 },
+      "options": { "colorMode": "value", "graphMode": "area" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "value": null, "color": "green" },
+              { "value": 50, "color": "yellow" },
+              { "value": 100, "color": "red" }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 2,
+      "title": "Active Subscribers",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "sum(moq_relay_active_subscribers) or vector(0)", "refId": "A" }],
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 0 },
+      "options": { "colorMode": "value", "graphMode": "area" }
+    },
+    {
+      "id": 3,
+      "title": "Active Connections",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "sum(moq_relay_active_connections) or vector(0)", "refId": "A" }],
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 0 },
+      "options": { "colorMode": "value", "graphMode": "area" }
+    },
+    {
+      "id": 4,
+      "title": "Relay Connections/min",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "sum(rate(moq_relay_connections_total[1m])) * 60 or vector(0)", "refId": "A" }],
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 0 },
+      "options": { "colorMode": "value", "graphMode": "area" },
+      "fieldConfig": { "defaults": { "decimals": 1 } }
+    },
+    {
+      "id": 5,
+      "title": "Frames Decoded/s",
+      "description": "Client-side frames successfully decoded",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "sum(rate(moq_client_frames_decoded_total[1m])) or vector(0)", "refId": "A" }],
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 0 },
+      "options": { "colorMode": "value", "graphMode": "area" },
+      "fieldConfig": { "defaults": { "unit": "fps", "decimals": 1 } }
+    },
+    {
+      "id": 6,
+      "title": "Rebuffers (5m)",
+      "description": "Data starvation events in last 5 minutes",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "sum(increase(moq_client_rebuffer_count_total[5m])) or vector(0)", "refId": "A" }],
+      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 0 },
+      "options": { "colorMode": "value", "graphMode": "area" },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "value": null, "color": "green" },
+              { "value": 1, "color": "yellow" },
+              { "value": 10, "color": "red" }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 10,
+      "title": "Relay Metrics",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 4 },
+      "collapsed": false
+    },
+    {
+      "id": 11,
+      "title": "Connections Over Time",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "sum(moq_relay_active_connections)", "legendFormat": "Active", "refId": "A" },
+        { "expr": "sum(rate(moq_relay_connections_total[1m])) * 60", "legendFormat": "New/min", "refId": "B" }
+      ],
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 5 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "drawStyle": "line", "fillOpacity": 20 }
+        }
+      }
+    },
+    {
+      "id": 12,
+      "title": "Subscribers & Streams",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "sum(moq_relay_active_subscribers)", "legendFormat": "Subscribers", "refId": "A" },
+        { "expr": "sum(moq_relay_active_streams)", "legendFormat": "Streams", "refId": "B" }
+      ],
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 5 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "drawStyle": "line", "fillOpacity": 20, "lineInterpolation": "smooth" }
+        }
+      }
+    },
+    {
+      "id": 13,
+      "title": "Fanout Over Time",
+      "description": "Subscribers per published group",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "histogram_quantile(0.5, sum(rate(moq_relay_fanout_bucket[5m])) by (le))", "legendFormat": "p50", "refId": "A" },
+        { "expr": "histogram_quantile(0.95, sum(rate(moq_relay_fanout_bucket[5m])) by (le))", "legendFormat": "p95", "refId": "B" },
+        { "expr": "sum(rate(moq_relay_fanout_sum[5m])) / sum(rate(moq_relay_fanout_count[5m]))", "legendFormat": "avg", "refId": "C" }
+      ],
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 13 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "drawStyle": "line", "fillOpacity": 10 }
+        }
+      }
+    },
+    {
+      "id": 14,
+      "title": "Connection Rates Comparison",
+      "description": "Relay vs Client connection rates",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "sum(rate(moq_relay_connections_total[1m])) * 60", "legendFormat": "Relay conn/min", "refId": "A" },
+        { "expr": "sum(rate(moq_client_connections_total[1m])) * 60", "legendFormat": "Client conn/min", "refId": "B" }
+      ],
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 13 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "drawStyle": "line", "fillOpacity": 20 }
+        }
+      }
+    },
+    {
+      "id": 20,
+      "title": "Client Metrics (Hang Layer)",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 21 },
+      "collapsed": false
+    },
+    {
+      "id": 21,
+      "title": "Buffer Length (p50/p95)",
+      "description": "Buffer ahead of playback position",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "histogram_quantile(0.5, sum(rate(moq_client_buffer_length_seconds_bucket[5m])) by (le))", "legendFormat": "p50", "refId": "A" },
+        { "expr": "histogram_quantile(0.95, sum(rate(moq_client_buffer_length_seconds_bucket[5m])) by (le))", "legendFormat": "p95", "refId": "B" }
+      ],
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 22 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "drawStyle": "line", "fillOpacity": 10 }
+        }
+      }
+    },
+    {
+      "id": 22,
+      "title": "Startup Time (TTFF)",
+      "description": "Time to first frame distribution",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "histogram_quantile(0.5, sum(rate(moq_client_startup_time_seconds_bucket[5m])) by (le))", "legendFormat": "p50", "refId": "A" },
+        { "expr": "histogram_quantile(0.95, sum(rate(moq_client_startup_time_seconds_bucket[5m])) by (le))", "legendFormat": "p95", "refId": "B" }
+      ],
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 22 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "drawStyle": "line", "fillOpacity": 10 }
+        }
+      }
+    },
+    {
+      "id": 23,
+      "title": "Decode Time",
+      "description": "WebCodecs decode submission time",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "histogram_quantile(0.5, sum(rate(moq_client_decode_time_seconds_bucket[5m])) by (le))", "legendFormat": "p50", "refId": "A" },
+        { "expr": "histogram_quantile(0.95, sum(rate(moq_client_decode_time_seconds_bucket[5m])) by (le))", "legendFormat": "p95", "refId": "B" }
+      ],
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 22 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "drawStyle": "line", "fillOpacity": 10 }
+        }
+      }
+    },
+    {
+      "id": 24,
+      "title": "Frames Decoded Over Time",
+      "description": "Frames successfully decoded",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "sum(rate(moq_client_frames_decoded_total[1m]))", "legendFormat": "frames/s", "refId": "A" }
+      ],
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 30 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "fps",
+          "custom": { "drawStyle": "line", "fillOpacity": 30 }
+        }
+      }
+    },
+    {
+      "id": 25,
+      "title": "Rebuffer Events Over Time",
+      "description": "Data starvation events",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "sum(rate(moq_client_rebuffer_count_total[1m])) * 60", "legendFormat": "rebuffers/min", "refId": "A" }
+      ],
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 30 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "drawStyle": "line", "fillOpacity": 20 },
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "value": null, "color": "green" },
+              { "value": 1, "color": "yellow" },
+              { "value": 5, "color": "red" }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 26,
+      "title": "Keyframe Interval",
+      "description": "Time between keyframes (GOP duration)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "histogram_quantile(0.5, sum(rate(moq_client_keyframe_interval_seconds_bucket[5m])) by (le))", "legendFormat": "p50", "refId": "A" },
+        { "expr": "histogram_quantile(0.95, sum(rate(moq_client_keyframe_interval_seconds_bucket[5m])) by (le))", "legendFormat": "p95", "refId": "B" }
+      ],
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 30 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "drawStyle": "line", "fillOpacity": 10 }
+        }
+      }
+    },
+    {
+      "id": 27,
+      "title": "Quality Switches Over Time",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "sum(rate(moq_client_quality_switches_total[1m])) * 60", "legendFormat": "switches/min", "refId": "A" }
+      ],
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 38 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "drawStyle": "line", "fillOpacity": 20 }
+        }
+      }
+    },
+    {
+      "id": 28,
+      "title": "Client Connections Over Time",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "sum(rate(moq_client_connections_total[1m])) * 60", "legendFormat": "connections/min", "refId": "A" }
+      ],
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 38 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "drawStyle": "line", "fillOpacity": 20 }
+        }
+      }
+    }
+  ]
+}

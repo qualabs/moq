@@ -1,0 +1,30 @@
+groups:
+  - name: moq_alerts
+    interval: 30s
+    rules:
+      - alert: HighPacketLoss
+        expr: moq_relay_quic_packet_loss_ratio > 0.05
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High QUIC packet loss detected"
+          description: "Packet loss is {{ $value | humanizePercentage }} (threshold: 5%)"
+
+      - alert: HighLatency
+        expr: histogram_quantile(0.95, moq_client_latency_seconds_bucket) > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High client latency detected"
+          description: "P95 latency is {{ $value }}s (threshold: 5s)"
+
+      - alert: NoActiveStreamsButPublisherConnected
+        expr: moq_relay_active_streams == 0 and moq_relay_active_subscribers > 0
+        for: 1m
+        labels:
+          severity: info
+        annotations:
+          summary: "Publisher connected but no active streams"
+          description: "There are {{ $value }} subscribers but no active streams"

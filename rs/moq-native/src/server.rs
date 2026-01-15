@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use std::{net, time::Duration};
 
-use crate::crypto;
+use crate::{crypto, qlog::QlogConfig};
 use anyhow::Context;
 use rustls::pki_types::{CertificateDer, PrivatePkcs8KeyDer};
 use rustls::server::{ClientHello, ResolvesServerCert};
@@ -71,6 +71,11 @@ pub struct ServerConfig {
 	#[command(flatten)]
 	#[serde(default)]
 	pub tls: ServerTlsConfig,
+
+	/// qlog configuration (for QUIC debugging)
+	#[command(flatten)]
+	#[serde(default)]
+	pub qlog: QlogConfig,
 }
 
 impl ServerConfig {
@@ -83,6 +88,7 @@ pub struct Server {
 	quic: quinn::Endpoint,
 	accept: FuturesUnordered<BoxFuture<'static, anyhow::Result<Request>>>,
 	certs: Arc<ServeCerts>,
+	qlog_config: QlogConfig,
 }
 
 impl Server {
@@ -138,6 +144,7 @@ impl Server {
 			quic: quic.clone(),
 			accept: Default::default(),
 			certs,
+			qlog_config: config.qlog,
 		})
 	}
 
@@ -162,6 +169,11 @@ impl Server {
 		self.certs.info.clone()
 	}
 
+	/// Get a reference to the qlog configuration for path generation
+	pub fn qlog_config(&self) -> &QlogConfig {
+		&self.qlog_config
+	}
+
 	/// Returns the next partially established QUIC or WebTransport session.
 	///
 	/// This returns a [Request] instead of a [web_transport_quinn::Session]
@@ -171,11 +183,12 @@ impl Server {
 	/// Call [Request::ok] or [Request::close] to complete the handshake in case this is
 	/// a WebTransport request.
 	pub async fn accept(&mut self) -> Option<Request> {
-		loop {
+			loop {
 			tokio::select! {
 				res = self.quic.accept() => {
 					let conn = res?;
-					self.accept.push(Self::accept_session(conn).boxed());
+					let qlog_config = self.qlog_config.clone();
+					self.accept.push(Self::accept_session(conn, qlog_config).boxed());
 				}
 				Some(res) = self.accept.next() => {
 					match res {
@@ -194,7 +207,7 @@ impl Server {
 		}
 	}
 
-	async fn accept_session(conn: quinn::Incoming) -> anyhow::Result<Request> {
+	async fn accept_session(conn: quinn::Incoming, qlog_config: QlogConfig) -> anyhow::Result<Request> {
 		let mut conn = conn.accept()?;
 
 		let handshake = conn
@@ -213,7 +226,21 @@ impl Server {
 		let conn = conn.await.context("failed to establish QUIC connection")?;
 
 		let span = tracing::Span::current();
-		span.record("id", conn.stable_id()); // TODO can we get this earlier?
+		let conn_id = conn.stable_id();
+		span.record("id", conn_id); // TODO can we get this earlier?
+
+		// Configure qlog if enabled
+		if qlog_config.should_log() {
+			let connection_id = format!("conn-{}", conn_id);
+			if let Err(e) = crate::qlog::configure_qlog(&conn, &qlog_config, &connection_id) {
+				tracing::warn!(%e, "Failed to configure qlog");
+			} else {
+				let qlog_path = qlog_config.file_path(&connection_id);
+				span.record("qlog_path", qlog_path.to_string_lossy().as_ref());
+				tracing::debug!(qlog_path = %qlog_path.display(), "qlog configured");
+			}
+		}
+
 		tracing::debug!(%host, ip = %conn.remote_address(), %alpn, "accepted");
 
 		match alpn.as_str() {
@@ -276,6 +303,40 @@ impl Request {
 			Request::Quic(request) => request.url(),
 		}
 	}
+
+	/// Get QUIC connection stats (RTT, bytes sent/received, packet loss).
+	/// Returns None for WebTransport requests (stats not directly accessible before accept).
+	pub fn quic_stats(&self) -> Option<QuicStats> {
+		match self {
+			Request::Quic(request) => Some(request.stats()),
+			// WebTransport doesn't expose connection before accept
+			Request::WebTransport(_) => None,
+		}
+	}
+
+	/// Get a clone of the underlying QUIC connection for stats polling.
+	/// Returns None for WebTransport requests.
+	/// The connection can be used to poll stats during the session lifetime.
+	pub fn connection(&self) -> Option<quinn::Connection> {
+		match self {
+			Request::Quic(request) => Some(request.connection.clone()),
+			// WebTransport doesn't expose connection directly
+			Request::WebTransport(_) => None,
+		}
+	}
+}
+
+/// QUIC connection statistics for observability
+#[derive(Debug, Clone)]
+pub struct QuicStats {
+	/// Round-trip time estimate
+	pub rtt: Duration,
+	/// Total bytes sent on this connection
+	pub bytes_sent: u64,
+	/// Total bytes received on this connection
+	pub bytes_received: u64,
+	/// Packet loss ratio (0.0 - 1.0)
+	pub packet_loss_ratio: f64,
 }
 
 pub struct QuicRequest {
@@ -300,6 +361,27 @@ impl QuicRequest {
 	/// Returns the URL provided by the client.
 	pub fn url(&self) -> &Url {
 		&self.url
+	}
+
+	/// Get QUIC connection statistics
+	pub fn stats(&self) -> QuicStats {
+		let stats = self.connection.stats();
+		let path_stats = &stats.path;
+
+		// Calculate packet loss ratio
+		let total_packets = path_stats.lost_packets + path_stats.sent_packets;
+		let packet_loss_ratio = if total_packets > 0 {
+			path_stats.lost_packets as f64 / total_packets as f64
+		} else {
+			0.0
+		};
+
+		QuicStats {
+			rtt: path_stats.rtt,
+			bytes_sent: stats.udp_tx.bytes,
+			bytes_received: stats.udp_rx.bytes,
+			packet_loss_ratio,
+		}
 	}
 
 	/// Reject the session with a status code.

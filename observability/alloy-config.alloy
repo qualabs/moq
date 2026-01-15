@@ -1,0 +1,89 @@
+// Grafana Alloy configuration for MoQ observability
+// Collects Docker container logs and sends to Loki
+
+// Docker service discovery
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+  refresh_interval = "5s"
+}
+
+// Filter for MoQ-related containers
+discovery.relabel "moq_containers" {
+  targets = discovery.docker.containers.targets
+
+  // Keep only containers with moq, hang, or relay in the name
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = ".*(moq|hang|relay).*"
+    action        = "keep"
+  }
+
+  // Extract container name as label
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+
+  // Set service_name label
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "service_name"
+  }
+}
+
+// Collect logs from Docker containers
+loki.source.docker "moq_logs" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.moq_containers.output
+  forward_to = [loki.process.json_logs.receiver]
+
+  relabel_rules = discovery.relabel.moq_containers.rules
+}
+
+// Process JSON logs from moq-relay
+loki.process "json_logs" {
+  forward_to = [loki.write.loki.receiver]
+
+  // Try to parse JSON logs
+  stage.json {
+    expressions = {
+      level     = "level",
+      message   = "message",
+      target    = "target",
+      span      = "span",
+      trace_id  = "trace_id",
+      span_id   = "span_id",
+      timestamp = "timestamp",
+    }
+  }
+
+  // Extract labels from JSON fields
+  stage.labels {
+    values = {
+      level    = "",
+      target   = "",
+      trace_id = "",
+      span_id  = "",
+    }
+  }
+
+  // Set timestamp from JSON if available
+  stage.timestamp {
+    source = "timestamp"
+    format = "RFC3339Nano"
+  }
+
+  // Output the message field as the log line (if available)
+  stage.output {
+    source = "message"
+  }
+}
+
+// Write logs to Loki
+loki.write "loki" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}

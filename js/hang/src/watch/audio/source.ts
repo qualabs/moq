@@ -2,6 +2,7 @@ import type * as Moq from "@moq/lite";
 import { Effect, type Getter, Signal } from "@moq/signals";
 import type * as Catalog from "../../catalog";
 import * as Frame from "../../frame";
+import { recordMetric } from "../../observability";
 import type * as Time from "../../time";
 import * as Hex from "../../util/hex";
 import * as libav from "../../util/libav";
@@ -163,6 +164,10 @@ export class Source {
 		const active = effect.get(this.active);
 		if (!active) return;
 
+		// Track time-to-first-audio
+		const trackStartTime = performance.now();
+		let firstFrameDecoded = false;
+
 		const sub = broadcast.subscribe(active, catalog.priority);
 		effect.cleanup(() => sub.close());
 
@@ -192,8 +197,25 @@ export class Source {
 			});
 
 			for (;;) {
+				// Measure wait time for rebuffer detection
+				const waitStart = performance.now();
 				const frame = await consumer.decode();
+				const waitDuration = performance.now() - waitStart;
+
 				if (!frame) break;
+
+				// Detect audio rebuffer (waiting too long for data)
+				if (firstFrameDecoded && waitDuration > 100) {
+					recordMetric((m) => m.incrementRebuffer({ codec: config.codec, track_type: "audio" }));
+				}
+
+				// Record time-to-first-audio
+				if (!firstFrameDecoded) {
+					firstFrameDecoded = true;
+					const ttfaSeconds = (performance.now() - trackStartTime) / 1000;
+					recordMetric((m) => m.recordStartupTime(ttfaSeconds, { codec: config.codec, track_type: "audio" }));
+					console.log(`[Audio] Time-to-first-audio: ${(ttfaSeconds * 1000).toFixed(0)}ms`);
+				}
 
 				this.#stats.update((stats) => ({
 					bytesReceived: (stats?.bytesReceived ?? 0) + frame.data.byteLength,

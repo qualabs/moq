@@ -1,10 +1,12 @@
 pub mod client;
 mod crypto;
 pub mod log;
+pub mod qlog;
 pub mod server;
 
 pub use client::*;
 pub use log::*;
+pub use qlog::*;
 pub use server::*;
 
 // Re-export these crates.

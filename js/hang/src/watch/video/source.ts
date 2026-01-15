@@ -2,6 +2,7 @@ import type * as Moq from "@moq/lite";
 import { Effect, type Getter, Signal } from "@moq/signals";
 import type * as Catalog from "../../catalog";
 import * as Frame from "../../frame";
+import { recordMetric } from "../../observability";
 import { PRIORITY } from "../../publish/priority";
 import type * as Time from "../../time";
 import * as Hex from "../../util/hex";
@@ -40,12 +41,17 @@ export interface VideoStats {
 	frameCount: number;
 	timestamp: number;
 	bytesReceived: number;
+	framesDecoded: number;
+	framesDropped: number;
 }
 
 // Only count it as buffering if we had to sleep for 200ms or more before rendering the next frame.
 // Unfortunately, this has to be quite high because of b-frames.
 // TODO Maybe we need to detect b-frames and make this dynamic?
 const MIN_SYNC_WAIT_MS = 200 as Time.Milli;
+
+// Minimum time to wait for a frame before counting it as a rebuffer event (ms)
+const REBUFFER_THRESHOLD_MS = 100;
 
 // The maximum number of concurrent b-frames that we support.
 const MAX_BFRAMES = 10;
@@ -192,8 +198,15 @@ export class Source {
 	}
 
 	#runTrack(effect: Effect, broadcast: Moq.Broadcast, name: string, config: RequiredDecoderConfig): void {
+		// Track time-to-first-frame from subscription start
+		const trackStartTime = performance.now();
+		let firstFrameRendered = false;
+
 		const sub = broadcast.subscribe(name, PRIORITY.video); // TODO use priority from catalog
 		effect.cleanup(() => sub.close());
+
+		// Record quality switch (CMCD-aligned)
+		recordMetric((m) => m.incrementQualitySwitch({ codec: config.codec, track_type: "video" }));
 
 		// Create consumer that reorders groups/frames up to the provided latency.
 		// Container defaults to "legacy" via Zod schema for backward compatibility
@@ -265,6 +278,15 @@ export class Source {
 					sleep = this.#reference - ref + this.latency.peek();
 				}
 
+				// Record buffer length: sleep > 0 means we have data buffered ahead
+				// The sleep time represents how far ahead of playback position we are
+				if (sleep > 0) {
+					const bufferSeconds = sleep / 1000;
+					recordMetric((m) => m.recordBufferLength(bufferSeconds, { codec: config.codec, track_type: "video" }));
+				}
+
+				// Note: Large sleep means we're AHEAD (have buffer), not rebuffering
+				// Rebuffering is detected in the consumer.decode() wait below
 				if (sleep > MIN_SYNC_WAIT_MS) {
 					this.syncStatus.set({ state: "wait", bufferDuration: sleep });
 				}
@@ -290,6 +312,17 @@ export class Source {
 					}
 				}
 
+				// Record frame decoded
+				recordMetric((m) => m.recordFrameDecoded({ codec: config.codec, track_type: "video" }));
+
+				// Record time-to-first-frame on the first rendered frame
+				if (!firstFrameRendered) {
+					firstFrameRendered = true;
+					const ttffSeconds = (performance.now() - trackStartTime) / 1000;
+					recordMetric((m) => m.recordStartupTime(ttffSeconds, { codec: config.codec, track_type: "video" }));
+					console.log(`[Video] Time-to-first-frame: ${(ttffSeconds * 1000).toFixed(0)}ms`);
+				}
+
 				this.frame.update((prev) => {
 					prev?.close();
 					return frame;
@@ -306,9 +339,31 @@ export class Source {
 		});
 
 		effect.spawn(async () => {
+			let lastKeyframeTime: number | undefined;
+			let isFirstFrame = true;
+
 			for (;;) {
+				// Measure how long we wait for the next frame (rebuffer detection)
+				const waitStart = performance.now();
 				const next = await Promise.race([consumer.decode(), effect.cancel]);
+				const waitDuration = performance.now() - waitStart;
+
 				if (!next) break;
+
+				// Detect rebuffer: if we waited too long for data after the first frame
+				if (!isFirstFrame && waitDuration > REBUFFER_THRESHOLD_MS) {
+					recordMetric((m) => m.incrementRebuffer({ codec: config.codec, track_type: "video" }));
+				}
+				isFirstFrame = false;
+
+				// Track keyframe interval
+				if (next.keyframe) {
+					if (lastKeyframeTime !== undefined) {
+						const intervalSeconds = (next.timestamp - lastKeyframeTime) / 1_000_000; // timestamp is in microseconds
+						recordMetric((m) => m.recordKeyframeInterval(intervalSeconds, { codec: config.codec }));
+					}
+					lastKeyframeTime = next.timestamp;
+				}
 
 				const chunk = new EncodedVideoChunk({
 					type: next.keyframe ? "key" : "delta",
@@ -316,14 +371,26 @@ export class Source {
 					timestamp: next.timestamp,
 				});
 
+				// Measure decode time
+				const decodeStart = performance.now();
+				decoder.decode(chunk);
+				// Note: decode() is async but doesn't return a promise, so we can't accurately measure it
+				// The actual decode time is captured when the frame comes out of the decoder output callback
+				// For now, we record the submission time which includes any queue wait
+				const decodeTime = (performance.now() - decodeStart) / 1000;
+				if (decodeTime > 0.001) {
+					// Only record if > 1ms to avoid noise
+					recordMetric((m) => m.recordDecodeTime(decodeTime, { codec: config.codec, track_type: "video" }));
+				}
+
 				// Track both frame count and bytes received for stats in the UI
 				this.#stats.update((current) => ({
 					frameCount: (current?.frameCount ?? 0) + 1,
 					timestamp: next.timestamp,
 					bytesReceived: (current?.bytesReceived ?? 0) + next.data.byteLength,
+					framesDecoded: (current?.framesDecoded ?? 0) + 1,
+					framesDropped: current?.framesDropped ?? 0,
 				}));
-
-				decoder.decode(chunk);
 			}
 		});
 	}

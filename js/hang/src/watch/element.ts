@@ -4,6 +4,7 @@ import type * as Time from "../time";
 import * as Audio from "./audio";
 import { Broadcast } from "./broadcast";
 import * as Video from "./video";
+import * as Observability from "../observability";
 
 // TODO remove name; replaced with path
 const OBSERVED = ["url", "name", "path", "paused", "volume", "muted", "reload", "latency"] as const;
@@ -69,11 +70,33 @@ export default class HangWatch extends HTMLElement {
 
 		cleanup.register(this, this.signals);
 
+		// Auto-initialize observability when URL is set
+		// Derives OTel endpoint from relay URL (same host, port 4318)
+		this.signals.effect((effect) => {
+			const url = effect.get(this.url);
+			if (url) {
+				const otelEndpoint = `http://${url.hostname}:4318`;
+				Observability.initObservability({ otlpEndpoint: otelEndpoint });
+			}
+		});
+
 		this.connection = new Moq.Connection.Reload({
 			url: this.url,
 			enabled: this.#enabled,
 		});
 		this.signals.cleanup(() => this.connection.close());
+
+		// Create trace span for playback session after observability is initialized
+		this.signals.effect((effect) => {
+			const url = effect.get(this.url);
+			if (url) {
+				const tracer = Observability.getTracer();
+				if (tracer) {
+					const span = tracer.startSpan("moq-playback-session");
+					effect.cleanup(() => span.end());
+				}
+			}
+		});
 
 		this.broadcast = new Broadcast({
 			connection: this.connection.established,

@@ -67,6 +67,9 @@ pub struct Cluster {
 
 	// Broadcasts announced by local clients and remote servers.
 	pub combined: Arc<moq_lite::Produce<OriginProducer, OriginConsumer>>,
+
+	// Metrics tracker for observability
+	pub metrics: crate::MetricsTracker,
 }
 
 impl Cluster {
@@ -78,6 +81,7 @@ impl Cluster {
 			primary: Arc::new(Origin::produce()),
 			secondary: Arc::new(Origin::produce()),
 			combined: Arc::new(Origin::produce()),
+			metrics: crate::MetricsTracker::new(),
 		}
 	}
 
@@ -169,8 +173,10 @@ impl Cluster {
 
 	// Shovel broadcasts from the primary and secondary origins into the combined origin.
 	async fn run_combined(self) -> anyhow::Result<()> {
+		let metrics = self.metrics.clone();
 		let mut primary = self.primary.consumer.consume();
 		let mut secondary = self.secondary.consumer.consume();
+		let combined_producer = self.combined.producer.clone();
 
 		loop {
 			let (name, broadcast) = tokio::select! {
@@ -181,7 +187,14 @@ impl Cluster {
 			};
 
 			if let Some(broadcast) = broadcast {
-				self.combined.producer.publish_broadcast(&name, broadcast);
+				combined_producer.publish_broadcast(&name, broadcast);
+				// Track active stream
+				metrics.increment_streams();
+				tracing::debug!(broadcast = %name, "stream started");
+			} else {
+				// Stream ended
+				metrics.decrement_streams();
+				tracing::debug!(broadcast = %name, "stream stopped");
 			}
 		}
 	}

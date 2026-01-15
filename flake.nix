@@ -92,6 +92,7 @@
         };
 
         devShells.default = pkgs.mkShell {
+          # Note: Docker with compose plugin required at system level for observability stack
           packages = rustDeps ++ jsDeps ++ cdnDeps;
 
           shellHook = ''

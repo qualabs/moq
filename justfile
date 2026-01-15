@@ -18,6 +18,11 @@ all: dev
 
 # Run the relay, web server, and publish bbb.
 dev:
+	# Start observability stack first (runs in background)
+	echo ">>> Starting observability stack..."
+	cd observability && docker compose up -d
+	cd ..
+
 	# Install any JS dependencies.
 	bun install
 
@@ -407,3 +412,15 @@ pub-console:
 # Serve the documentation locally.
 doc:
 	cd doc && bun run dev
+
+# Start the observability stack (Prometheus, Tempo, Loki, Grafana)
+observability:
+	cd observability && docker compose up -d
+
+# Stop the observability stack
+observability-stop:
+	cd observability && docker compose down
+
+# View observability stack logs
+observability-logs:
+	cd observability && docker compose logs -f
