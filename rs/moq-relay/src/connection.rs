@@ -83,7 +83,12 @@ impl Connection {
 		}
 
 		// Accept the connection.
-		let session = self.request.accept(subscribe, publish).await?;
+		let stats: std::sync::Arc<dyn moq_native::moq_lite::Stats> =
+			std::sync::Arc::new(self.cluster.metrics.clone());
+		let session = self
+			.request
+			.accept_with_stats(subscribe, publish, Some(stats))
+			.await?;
 
 		// Track connection closure for metrics
 		let metrics = self.cluster.metrics.clone();

@@ -211,17 +211,21 @@ The relay operates on MoQ-native units (objects, groups) without understanding m
 | `moq_relay_connections_total` | Counter | Total connections over time |
 | `moq_relay_bytes_sent_total` | Counter | Total bytes transmitted |
 | `moq_relay_bytes_received_total` | Counter | Total bytes received |
+| `moq_relay_app_bytes_sent_total` | Counter | App-level payload bytes sent (use for amplification; excludes retransmits) |
+| `moq_relay_app_bytes_received_total` | Counter | App-level payload bytes received (use for amplification; excludes retransmits) |
 | `moq_relay_objects_sent_total` | Counter | Total MoQ objects transmitted |
 | `moq_relay_objects_received_total` | Counter | Total MoQ objects received |
 | `moq_relay_groups_sent_total` | Counter | Total MoQ groups transmitted |
 | `moq_relay_groups_received_total` | Counter | Total MoQ groups received |
-| `moq_relay_cache_hits_total` | Counter | Objects served from cache |
-| `moq_relay_cache_misses_total` | Counter | Objects fetched from upstream |
-| `moq_relay_dedup_upstream_saved_total` | Counter | Upstream fetches avoided via dedup |
-| `moq_relay_fanout` | Histogram | Subscribers per published group |
+| `moq_relay_cache_hits_total` | Counter | Experimental: “served without upstream work” (definition TBD; fanout-sensitive) |
+| `moq_relay_cache_misses_total` | Counter | Experimental: “required upstream work” (definition TBD; fanout-sensitive) |
+| `moq_relay_dedup_upstream_saved_total` | Counter | Upstream work avoided via subscription dedup (fanout-relay “cache effectiveness”) |
+| `moq_relay_fanout` | Histogram | Effective fanout (currently derived periodically, not group-accurate) |
 | `moq_relay_queue_depth` | Gauge | Pending objects in delivery queue |
 | `moq_relay_drops_total` | Counter | Objects dropped (backpressure) |
 | `moq_relay_errors_total` | Counter | Connection errors |
+
+**Note on cache metrics in fanout relays:** In a Producer/Consumer fanout architecture, “cache hit rate” can be misleading unless it’s defined precisely (per-consumer delivery vs per-upstream work vs late-join retention). Prefer `moq_relay_dedup_upstream_saved_total` plus `moq_relay_app_bytes_{sent,received}_total` (amplification) until `cache_hits_total`/`cache_misses_total` are fully defined and wired.
 
 **Labels:**
 - `relay_instance`: Relay identifier

@@ -1,7 +1,7 @@
 use crate::{
 	coding::{Reader, Stream},
 	ietf::{self, Control, Message, RequestId, Version},
-	Error, OriginConsumer, OriginProducer,
+	Error, OriginConsumer, OriginProducer, Stats,
 };
 
 use super::{Publisher, Subscriber};
@@ -13,6 +13,7 @@ pub(crate) async fn start<S: web_transport_trait::Session>(
 	client: bool,
 	publish: Option<OriginConsumer>,
 	subscribe: Option<OriginProducer>,
+	stats: Option<std::sync::Arc<dyn Stats>>,
 	version: Version,
 ) -> Result<(), Error> {
 	web_async::spawn(async move {
@@ -23,6 +24,7 @@ pub(crate) async fn start<S: web_transport_trait::Session>(
 			client,
 			publish,
 			subscribe,
+			stats,
 			version,
 		)
 		.await
@@ -52,12 +54,13 @@ async fn run<S: web_transport_trait::Session>(
 	client: bool,
 	publish: Option<OriginConsumer>,
 	subscribe: Option<OriginProducer>,
+	stats: Option<std::sync::Arc<dyn Stats>>,
 	version: Version,
 ) -> Result<(), Error> {
 	let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
 	let control = Control::new(tx, request_id_max, client, version);
-	let publisher = Publisher::new(session.clone(), publish, control.clone(), version);
-	let subscriber = Subscriber::new(session.clone(), subscribe, control.clone(), version);
+	let publisher = Publisher::new(session.clone(), publish, control.clone(), stats.clone(), version);
+	let subscriber = Subscriber::new(session.clone(), subscribe, control.clone(), stats.clone(), version);
 
 	tokio::select! {
 		res = subscriber.clone().run() => res,

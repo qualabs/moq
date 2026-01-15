@@ -177,6 +177,7 @@ async fn serve_ws(
 	let token = state.auth.verify(&path, params.jwt.as_deref())?;
 	let publish = state.cluster.publisher(&token);
 	let subscribe = state.cluster.subscriber(&token);
+	let metrics = state.cluster.metrics.clone();
 
 	if publish.is_none() && subscribe.is_none() {
 		// Bad token, we can't publish or subscribe.
@@ -196,7 +197,7 @@ async fn serve_ws(
 				tungstenite::Error::ConnectionClosed
 			})
 			.with(tungstenite_to_axum);
-		let _ = handle_socket(id, socket, publish, subscribe).await;
+		let _ = handle_socket(id, socket, publish, subscribe, metrics).await;
 	}))
 }
 
@@ -206,6 +207,7 @@ async fn handle_socket<T>(
 	socket: T,
 	publish: Option<OriginProducer>,
 	subscribe: Option<OriginConsumer>,
+	metrics: crate::MetricsTracker,
 ) -> anyhow::Result<()>
 where
 	T: futures::Stream<Item = Result<tungstenite::Message, tungstenite::Error>>
@@ -216,7 +218,8 @@ where
 {
 	// Wrap the WebSocket in a WebTransport compatibility layer.
 	let ws = web_transport_ws::Session::new(socket, true);
-	let session = moq_lite::Session::accept(ws, subscribe, publish).await?;
+	let stats: std::sync::Arc<dyn moq_native::moq_lite::Stats> = std::sync::Arc::new(metrics);
+	let session = moq_lite::Session::accept_with_stats(ws, subscribe, publish, Some(stats)).await?;
 	session.closed().await.map_err(Into::into)
 }
 

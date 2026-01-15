@@ -13,8 +13,12 @@ pub struct MetricsTracker {
 	active_subscribers: Arc<AtomicU64>,
 	active_connections: Arc<AtomicU64>,
 	total_connections: Arc<AtomicU64>,
+	// Transport-level bytes (may include retransmissions depending on transport)
 	bytes_sent: Arc<AtomicU64>,
 	bytes_received: Arc<AtomicU64>,
+	// Application-level payload bytes (frame chunks). Ignores retransmissions.
+	app_bytes_sent: Arc<AtomicU64>,
+	app_bytes_received: Arc<AtomicU64>,
 	connection_errors: Arc<AtomicU64>,
 	// MoQ objects (individual data units within a group)
 	objects_sent: Arc<AtomicU64>,
@@ -82,6 +86,16 @@ impl MetricsTracker {
 	/// Record bytes received
 	pub fn record_bytes_received(&self, bytes: u64) {
 		self.bytes_received.fetch_add(bytes, Ordering::Relaxed);
+	}
+
+	/// Record application-level payload bytes sent (frame chunks written to the network).
+	pub fn record_app_bytes_sent(&self, bytes: u64) {
+		self.app_bytes_sent.fetch_add(bytes, Ordering::Relaxed);
+	}
+
+	/// Record application-level payload bytes received (frame chunks read from the network).
+	pub fn record_app_bytes_received(&self, bytes: u64) {
+		self.app_bytes_received.fetch_add(bytes, Ordering::Relaxed);
 	}
 
 	/// Record a MoQ object sent
@@ -174,6 +188,16 @@ impl MetricsTracker {
 		self.bytes_received.load(Ordering::Relaxed)
 	}
 
+	/// Get total application-level payload bytes sent
+	pub fn total_app_bytes_sent(&self) -> u64 {
+		self.app_bytes_sent.load(Ordering::Relaxed)
+	}
+
+	/// Get total application-level payload bytes received
+	pub fn total_app_bytes_received(&self) -> u64 {
+		self.app_bytes_received.load(Ordering::Relaxed)
+	}
+
 	/// Get total MoQ objects sent
 	pub fn total_objects_sent(&self) -> u64 {
 		self.objects_sent.load(Ordering::Relaxed)
@@ -217,5 +241,16 @@ impl MetricsTracker {
 	/// Get current queue depth
 	pub fn queue_depth(&self) -> u64 {
 		self.queue_depth.load(Ordering::Relaxed)
+	}
+}
+
+// Provide application-level byte accounting to moq-lite via a trait object.
+impl moq_native::moq_lite::Stats for MetricsTracker {
+	fn add_rx_bytes(&self, bytes: u64) {
+		self.record_app_bytes_received(bytes);
+	}
+
+	fn add_tx_bytes(&self, bytes: u64) {
+		self.record_app_bytes_sent(bytes);
 	}
 }

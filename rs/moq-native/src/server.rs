@@ -288,11 +288,21 @@ impl Request {
 		publish: impl Into<Option<moq_lite::OriginConsumer>>,
 		subscribe: impl Into<Option<moq_lite::OriginProducer>>,
 	) -> anyhow::Result<moq_lite::Session> {
+		Self::accept_with_stats(self, publish, subscribe, None).await
+	}
+
+	/// Accept the session, performing rest of the MoQ handshake, with optional stats hooks.
+	pub async fn accept_with_stats(
+		self,
+		publish: impl Into<Option<moq_lite::OriginConsumer>>,
+		subscribe: impl Into<Option<moq_lite::OriginProducer>>,
+		stats: Option<std::sync::Arc<dyn moq_lite::Stats>>,
+	) -> anyhow::Result<moq_lite::Session> {
 		let session = match self {
 			Request::WebTransport(request) => request.ok().await?,
 			Request::Quic(request) => request.ok(),
 		};
-		let session = moq_lite::Session::accept(session, publish, subscribe).await?;
+		let session = moq_lite::Session::accept_with_stats(session, publish, subscribe, stats).await?;
 		Ok(session)
 	}
 

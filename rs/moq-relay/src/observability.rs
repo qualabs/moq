@@ -73,6 +73,8 @@ pub fn start_metrics_export_task(
 		let mut interval = tokio::time::interval(std::time::Duration::from_secs(10));
 		let mut last_bytes_sent = 0u64;
 		let mut last_bytes_received = 0u64;
+		let mut last_app_bytes_sent = 0u64;
+		let mut last_app_bytes_received = 0u64;
 		let mut last_objects_sent = 0u64;
 		let mut last_objects_received = 0u64;
 		let mut last_groups_sent = 0u64;
@@ -151,6 +153,21 @@ pub fn start_metrics_export_task(
 			if delta_received > 0 {
 				relay_metrics.bytes_received_total.add(delta_received, labels);
 				last_bytes_received = current_bytes_received;
+			}
+
+			// Export application-level payload bytes (counters - track deltas)
+			let current_app_bytes_sent = metrics_tracker.total_app_bytes_sent();
+			let delta_app_sent = current_app_bytes_sent.saturating_sub(last_app_bytes_sent);
+			if delta_app_sent > 0 {
+				relay_metrics.app_bytes_sent_total.add(delta_app_sent, labels);
+				last_app_bytes_sent = current_app_bytes_sent;
+			}
+
+			let current_app_bytes_received = metrics_tracker.total_app_bytes_received();
+			let delta_app_received = current_app_bytes_received.saturating_sub(last_app_bytes_received);
+			if delta_app_received > 0 {
+				relay_metrics.app_bytes_received_total.add(delta_app_received, labels);
+				last_app_bytes_received = current_app_bytes_received;
 			}
 
 			// Export MoQ objects sent/received (counters - track deltas)
@@ -361,6 +378,10 @@ pub struct RelayMetrics {
 	pub errors_total: Counter<u64>,
 	pub bytes_sent_total: Counter<u64>,
 	pub bytes_received_total: Counter<u64>,
+	/// Application-level payload bytes (frame chunks). Ignores retransmissions.
+	pub app_bytes_sent_total: Counter<u64>,
+	/// Application-level payload bytes (frame chunks). Ignores retransmissions.
+	pub app_bytes_received_total: Counter<u64>,
 	// MoQ objects (individual data units within a group)
 	pub objects_sent_total: Counter<u64>,
 	pub objects_received_total: Counter<u64>,
@@ -410,6 +431,14 @@ impl RelayMetrics {
 			bytes_received_total: meter
 				.u64_counter("moq_relay_bytes_received_total")
 				.with_description("Total bytes received")
+				.init(),
+			app_bytes_sent_total: meter
+				.u64_counter("moq_relay_app_bytes_sent_total")
+				.with_description("Application-level payload bytes sent (frame chunks; excludes retransmissions)")
+				.init(),
+			app_bytes_received_total: meter
+				.u64_counter("moq_relay_app_bytes_received_total")
+				.with_description("Application-level payload bytes received (frame chunks; excludes retransmissions)")
 				.init(),
 			objects_sent_total: meter
 				.u64_counter("moq_relay_objects_sent_total")

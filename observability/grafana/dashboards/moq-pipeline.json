@@ -3,7 +3,7 @@
   "tags": ["moq", "observability", "pipeline"],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 3,
+  "version": 4,
   "refresh": "5s",
   "uid": "moq-pipeline",
   "editable": true,
@@ -137,7 +137,7 @@
     {
       "id": 13,
       "title": "Fanout Over Time",
-      "description": "Subscribers per published group",
+      "description": "Effective fanout (derived periodically); not per-group attribution",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
@@ -316,6 +316,88 @@
       "fieldConfig": {
         "defaults": {
           "custom": { "drawStyle": "line", "fillOpacity": 20 }
+        }
+      }
+    },
+    {
+      "id": 60,
+      "title": "Relay Effectiveness",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 46 },
+      "collapsed": false
+    },
+    {
+      "id": 61,
+      "title": "Relay Bitrate (App-level, no retransmits)",
+      "description": "Application payload bitrate: output vs input (fanout/dedup shows as amplification)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "sum(rate(moq_relay_app_bytes_sent_total[1m])) * 8 / 1000000",
+          "legendFormat": "output Mbps",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(moq_relay_app_bytes_received_total[1m])) * 8 / 1000000",
+          "legendFormat": "input Mbps",
+          "refId": "B"
+        }
+      ],
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 47 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Mbps",
+          "custom": { "drawStyle": "line", "fillOpacity": 20, "lineInterpolation": "smooth" }
+        }
+      }
+    },
+    {
+      "id": 62,
+      "title": "Amplification (Output/Input)",
+      "description": "Application-level relay amplification ratio: output_bitrate / input_bitrate",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "sum(rate(moq_relay_app_bytes_sent_total[1m])) / clamp_min(sum(rate(moq_relay_app_bytes_received_total[1m])), 1)",
+          "refId": "A"
+        }
+      ],
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 47 },
+      "options": { "colorMode": "value", "graphMode": "area", "wideLayout": true },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 2,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "value": null, "color": "yellow" },
+              { "value": 1, "color": "green" }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 63,
+      "title": "Amplification Over Time",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "sum(rate(moq_relay_app_bytes_sent_total[1m])) / clamp_min(sum(rate(moq_relay_app_bytes_received_total[1m])), 1)",
+          "legendFormat": "amp",
+          "refId": "A"
+        }
+      ],
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 47 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 2,
+          "custom": { "drawStyle": "line", "fillOpacity": 10, "lineInterpolation": "smooth" }
         }
       }
     }
