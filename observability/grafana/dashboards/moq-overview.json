@@ -1,19 +1,19 @@
 {
 	"annotations": {
-	  "list": [
-		{
-		  "builtIn": 1,
-		  "datasource": {
-			"type": "grafana",
-			"uid": "-- Grafana --"
-		  },
-		  "enable": true,
-		  "hide": true,
-		  "iconColor": "rgba(0, 211, 255, 1)",
-		  "name": "Annotations & Alerts",
-		  "type": "dashboard"
-		}
-	  ]
+		"list": [
+			{
+				"builtIn": 1,
+				"datasource": {
+					"type": "grafana",
+					"uid": "-- Grafana --"
+				},
+				"enable": true,
+				"hide": true,
+				"iconColor": "rgba(0, 211, 255, 1)",
+				"name": "Annotations & Alerts",
+				"type": "dashboard"
+			}
+		]
 	},
 	"description": "Media over QUIC - Real-time streaming observability",
 	"editable": true,
@@ -22,2150 +22,2122 @@
 	"id": 6,
 	"links": [],
 	"panels": [
-	  {
-		"datasource": {
-		  "type": "prometheus",
-		  "uid": "prometheus"
-		},
-		"fieldConfig": {
-		  "defaults": {
-			"color": {
-			  "mode": "thresholds"
+		{
+			"datasource": {
+				"type": "prometheus",
+				"uid": "prometheus"
 			},
-			"mappings": [],
-			"thresholds": {
-			  "mode": "absolute",
-			  "steps": [
-				{
-				  "color": "green",
-				  "value": 0
+			"fieldConfig": {
+				"defaults": {
+					"color": {
+						"mode": "thresholds"
+					},
+					"mappings": [],
+					"thresholds": {
+						"mode": "absolute",
+						"steps": [
+							{
+								"color": "green",
+								"value": 0
+							},
+							{
+								"color": "yellow",
+								"value": 100
+							},
+							{
+								"color": "red",
+								"value": 500
+							}
+						]
+					},
+					"unit": "none"
 				},
-				{
-				  "color": "yellow",
-				  "value": 100
+				"overrides": []
+			},
+			"gridPos": {
+				"h": 4,
+				"w": 4,
+				"x": 0,
+				"y": 0
+			},
+			"id": 1,
+			"options": {
+				"colorMode": "value",
+				"graphMode": "area",
+				"justifyMode": "auto",
+				"orientation": "auto",
+				"percentChangeColorMode": "standard",
+				"reduceOptions": {
+					"calcs": ["lastNotNull"],
+					"fields": "",
+					"values": false
 				},
+				"showPercentChange": false,
+				"textMode": "auto",
+				"wideLayout": true
+			},
+			"pluginVersion": "12.3.1",
+			"targets": [
 				{
-				  "color": "red",
-				  "value": 500
+					"expr": "sum(moq_relay_active_subscribers) or vector(0)",
+					"refId": "A"
 				}
-			  ]
-			},
-			"unit": "none"
-		  },
-		  "overrides": []
-		},
-		"gridPos": {
-		  "h": 4,
-		  "w": 4,
-		  "x": 0,
-		  "y": 0
-		},
-		"id": 1,
-		"options": {
-		  "colorMode": "value",
-		  "graphMode": "area",
-		  "justifyMode": "auto",
-		  "orientation": "auto",
-		  "percentChangeColorMode": "standard",
-		  "reduceOptions": {
-			"calcs": [
-			  "lastNotNull"
 			],
-			"fields": "",
-			"values": false
-		  },
-		  "showPercentChange": false,
-		  "textMode": "auto",
-		  "wideLayout": true
+			"title": "Active Viewers",
+			"type": "stat"
 		},
-		"pluginVersion": "12.3.1",
-		"targets": [
-		  {
-			"expr": "sum(moq_relay_active_subscribers) or vector(0)",
-			"refId": "A"
-		  }
-		],
-		"title": "Active Viewers",
-		"type": "stat"
-	  },
-	  {
-		"datasource": {
-		  "type": "prometheus",
-		  "uid": "prometheus"
-		},
-		"fieldConfig": {
-		  "defaults": {
-			"color": {
-			  "mode": "thresholds"
+		{
+			"datasource": {
+				"type": "prometheus",
+				"uid": "prometheus"
 			},
-			"mappings": [],
-			"thresholds": {
-			  "mode": "absolute",
-			  "steps": [
-				{
-				  "color": "green",
-				  "value": 0
+			"fieldConfig": {
+				"defaults": {
+					"color": {
+						"mode": "thresholds"
+					},
+					"mappings": [],
+					"thresholds": {
+						"mode": "absolute",
+						"steps": [
+							{
+								"color": "green",
+								"value": 0
+							},
+							{
+								"color": "yellow",
+								"value": 50
+							},
+							{
+								"color": "red",
+								"value": 100
+							}
+						]
+					},
+					"unit": "none"
 				},
-				{
-				  "color": "yellow",
-				  "value": 50
+				"overrides": []
+			},
+			"gridPos": {
+				"h": 4,
+				"w": 4,
+				"x": 4,
+				"y": 0
+			},
+			"id": 2,
+			"options": {
+				"colorMode": "value",
+				"graphMode": "area",
+				"justifyMode": "auto",
+				"orientation": "auto",
+				"percentChangeColorMode": "standard",
+				"reduceOptions": {
+					"calcs": ["lastNotNull"],
+					"fields": "",
+					"values": false
 				},
+				"showPercentChange": false,
+				"textMode": "auto",
+				"wideLayout": true
+			},
+			"pluginVersion": "12.3.1",
+			"targets": [
 				{
-				  "color": "red",
-				  "value": 100
+					"expr": "sum(moq_relay_active_streams) or vector(0)",
+					"refId": "A"
 				}
-			  ]
-			},
-			"unit": "none"
-		  },
-		  "overrides": []
-		},
-		"gridPos": {
-		  "h": 4,
-		  "w": 4,
-		  "x": 4,
-		  "y": 0
-		},
-		"id": 2,
-		"options": {
-		  "colorMode": "value",
-		  "graphMode": "area",
-		  "justifyMode": "auto",
-		  "orientation": "auto",
-		  "percentChangeColorMode": "standard",
-		  "reduceOptions": {
-			"calcs": [
-			  "lastNotNull"
 			],
-			"fields": "",
-			"values": false
-		  },
-		  "showPercentChange": false,
-		  "textMode": "auto",
-		  "wideLayout": true
+			"title": "Active Streams",
+			"type": "stat"
 		},
-		"pluginVersion": "12.3.1",
-		"targets": [
-		  {
-			"expr": "sum(moq_relay_active_streams) or vector(0)",
-			"refId": "A"
-		  }
-		],
-		"title": "Active Streams",
-		"type": "stat"
-	  },
-	  {
-		"datasource": {
-		  "type": "prometheus",
-		  "uid": "prometheus"
-		},
-		"fieldConfig": {
-		  "defaults": {
-			"color": {
-			  "mode": "thresholds"
+		{
+			"datasource": {
+				"type": "prometheus",
+				"uid": "prometheus"
 			},
-			"mappings": [],
-			"thresholds": {
-			  "mode": "absolute",
-			  "steps": [
-				{
-				  "color": "green",
-				  "value": 0
+			"fieldConfig": {
+				"defaults": {
+					"color": {
+						"mode": "thresholds"
+					},
+					"mappings": [],
+					"thresholds": {
+						"mode": "absolute",
+						"steps": [
+							{
+								"color": "green",
+								"value": 0
+							},
+							{
+								"color": "yellow",
+								"value": 100
+							},
+							{
+								"color": "red",
+								"value": 500
+							}
+						]
+					},
+					"unit": "none"
 				},
-				{
-				  "color": "yellow",
-				  "value": 100
+				"overrides": []
+			},
+			"gridPos": {
+				"h": 4,
+				"w": 4,
+				"x": 8,
+				"y": 0
+			},
+			"id": 3,
+			"options": {
+				"colorMode": "value",
+				"graphMode": "area",
+				"justifyMode": "auto",
+				"orientation": "auto",
+				"percentChangeColorMode": "standard",
+				"reduceOptions": {
+					"calcs": ["lastNotNull"],
+					"fields": "",
+					"values": false
 				},
+				"showPercentChange": false,
+				"textMode": "auto",
+				"wideLayout": true
+			},
+			"pluginVersion": "12.3.1",
+			"targets": [
 				{
-				  "color": "red",
-				  "value": 500
+					"expr": "sum(moq_relay_active_connections) or vector(0)",
+					"refId": "A"
 				}
-			  ]
-			},
-			"unit": "none"
-		  },
-		  "overrides": []
-		},
-		"gridPos": {
-		  "h": 4,
-		  "w": 4,
-		  "x": 8,
-		  "y": 0
-		},
-		"id": 3,
-		"options": {
-		  "colorMode": "value",
-		  "graphMode": "area",
-		  "justifyMode": "auto",
-		  "orientation": "auto",
-		  "percentChangeColorMode": "standard",
-		  "reduceOptions": {
-			"calcs": [
-			  "lastNotNull"
 			],
-			"fields": "",
-			"values": false
-		  },
-		  "showPercentChange": false,
-		  "textMode": "auto",
-		  "wideLayout": true
+			"title": "Active WebTransport Connections",
+			"type": "stat"
 		},
-		"pluginVersion": "12.3.1",
-		"targets": [
-		  {
-			"expr": "sum(moq_relay_active_connections) or vector(0)",
-			"refId": "A"
-		  }
-		],
-		"title": "Active WebTransport Connections",
-		"type": "stat"
-	  },
-	  {
-		"datasource": {
-		  "type": "prometheus",
-		  "uid": "prometheus"
-		},
-		"fieldConfig": {
-		  "defaults": {
-			"decimals": 1,
-			"displayName": "connections/min",
-			"mappings": [],
-			"thresholds": {
-			  "mode": "absolute",
-			  "steps": [
-				{
-				  "color": "green",
-				  "value": 0
-				},
-				{
-				  "color": "red",
-				  "value": 80
-				}
-			  ]
+		{
+			"datasource": {
+				"type": "prometheus",
+				"uid": "prometheus"
 			},
-			"unit": "short"
-		  },
-		  "overrides": []
-		},
-		"gridPos": {
-		  "h": 4,
-		  "w": 4,
-		  "x": 12,
-		  "y": 0
-		},
-		"id": 4,
-		"options": {
-		  "colorMode": "value",
-		  "graphMode": "area",
-		  "justifyMode": "auto",
-		  "orientation": "auto",
-		  "percentChangeColorMode": "standard",
-		  "reduceOptions": {
-			"calcs": [
-			  "lastNotNull"
+			"fieldConfig": {
+				"defaults": {
+					"decimals": 1,
+					"displayName": "connections/min",
+					"mappings": [],
+					"thresholds": {
+						"mode": "absolute",
+						"steps": [
+							{
+								"color": "green",
+								"value": 0
+							},
+							{
+								"color": "red",
+								"value": 80
+							}
+						]
+					},
+					"unit": "short"
+				},
+				"overrides": []
+			},
+			"gridPos": {
+				"h": 4,
+				"w": 4,
+				"x": 12,
+				"y": 0
+			},
+			"id": 4,
+			"options": {
+				"colorMode": "value",
+				"graphMode": "area",
+				"justifyMode": "auto",
+				"orientation": "auto",
+				"percentChangeColorMode": "standard",
+				"reduceOptions": {
+					"calcs": ["lastNotNull"],
+					"fields": "",
+					"values": false
+				},
+				"showPercentChange": false,
+				"textMode": "auto",
+				"wideLayout": true
+			},
+			"pluginVersion": "12.3.1",
+			"targets": [
+				{
+					"expr": "sum(rate(moq_relay_connections_total[5m])) * 60 or vector(0)",
+					"refId": "A"
+				}
 			],
-			"fields": "",
-			"values": false
-		  },
-		  "showPercentChange": false,
-		  "textMode": "auto",
-		  "wideLayout": true
+			"title": "Connection Rate",
+			"type": "stat"
 		},
-		"pluginVersion": "12.3.1",
-		"targets": [
-		  {
-			"expr": "sum(rate(moq_relay_connections_total[5m])) * 60 or vector(0)",
-			"refId": "A"
-		  }
-		],
-		"title": "Connection Rate",
-		"type": "stat"
-	  },
-	  {
-		"datasource": {
-		  "type": "prometheus",
-		  "uid": "prometheus"
-		},
-		"fieldConfig": {
-		  "defaults": {
-			"decimals": 1,
-			"displayName": "clients/min",
-			"mappings": [],
-			"thresholds": {
-			  "mode": "absolute",
-			  "steps": [
-				{
-				  "color": "green",
-				  "value": 0
-				},
-				{
-				  "color": "red",
-				  "value": 80
-				}
-			  ]
+		{
+			"datasource": {
+				"type": "prometheus",
+				"uid": "prometheus"
 			},
-			"unit": "short"
-		  },
-		  "overrides": []
-		},
-		"gridPos": {
-		  "h": 4,
-		  "w": 4,
-		  "x": 16,
-		  "y": 0
-		},
-		"id": 5,
-		"options": {
-		  "colorMode": "value",
-		  "graphMode": "area",
-		  "justifyMode": "auto",
-		  "orientation": "auto",
-		  "percentChangeColorMode": "standard",
-		  "reduceOptions": {
-			"calcs": [
-			  "lastNotNull"
+			"fieldConfig": {
+				"defaults": {
+					"decimals": 1,
+					"displayName": "clients/min",
+					"mappings": [],
+					"thresholds": {
+						"mode": "absolute",
+						"steps": [
+							{
+								"color": "green",
+								"value": 0
+							},
+							{
+								"color": "red",
+								"value": 80
+							}
+						]
+					},
+					"unit": "short"
+				},
+				"overrides": []
+			},
+			"gridPos": {
+				"h": 4,
+				"w": 4,
+				"x": 16,
+				"y": 0
+			},
+			"id": 5,
+			"options": {
+				"colorMode": "value",
+				"graphMode": "area",
+				"justifyMode": "auto",
+				"orientation": "auto",
+				"percentChangeColorMode": "standard",
+				"reduceOptions": {
+					"calcs": ["lastNotNull"],
+					"fields": "",
+					"values": false
+				},
+				"showPercentChange": false,
+				"textMode": "auto",
+				"wideLayout": true
+			},
+			"pluginVersion": "12.3.1",
+			"targets": [
+				{
+					"expr": "sum(rate(moq_client_connections_total[5m])) * 60 or vector(0)",
+					"refId": "A"
+				}
 			],
-			"fields": "",
-			"values": false
-		  },
-		  "showPercentChange": false,
-		  "textMode": "auto",
-		  "wideLayout": true
+			"title": "Client Connections",
+			"type": "stat"
 		},
-		"pluginVersion": "12.3.1",
-		"targets": [
-		  {
-			"expr": "sum(rate(moq_client_connections_total[5m])) * 60 or vector(0)",
-			"refId": "A"
-		  }
-		],
-		"title": "Client Connections",
-		"type": "stat"
-	  },
-	  {
-		"datasource": {
-		  "type": "prometheus",
-		  "uid": "prometheus"
-		},
-		"fieldConfig": {
-		  "defaults": {
-			"color": {
-			  "mode": "thresholds"
+		{
+			"datasource": {
+				"type": "prometheus",
+				"uid": "prometheus"
 			},
-			"decimals": 3,
-			"mappings": [],
-			"thresholds": {
-			  "mode": "absolute",
-			  "steps": [
-				{
-				  "color": "green",
-				  "value": 0
+			"fieldConfig": {
+				"defaults": {
+					"color": {
+						"mode": "thresholds"
+					},
+					"decimals": 3,
+					"mappings": [],
+					"thresholds": {
+						"mode": "absolute",
+						"steps": [
+							{
+								"color": "green",
+								"value": 0
+							},
+							{
+								"color": "yellow",
+								"value": 0.5
+							},
+							{
+								"color": "red",
+								"value": 2
+							}
+						]
+					},
+					"unit": "s"
 				},
-				{
-				  "color": "yellow",
-				  "value": 0.5
+				"overrides": []
+			},
+			"gridPos": {
+				"h": 4,
+				"w": 4,
+				"x": 20,
+				"y": 0
+			},
+			"id": 6,
+			"options": {
+				"colorMode": "value",
+				"graphMode": "area",
+				"justifyMode": "auto",
+				"orientation": "auto",
+				"percentChangeColorMode": "standard",
+				"reduceOptions": {
+					"calcs": ["lastNotNull"],
+					"fields": "",
+					"values": false
 				},
+				"showPercentChange": false,
+				"textMode": "auto",
+				"wideLayout": true
+			},
+			"pluginVersion": "12.3.1",
+			"targets": [
 				{
-				  "color": "red",
-				  "value": 2
+					"expr": "sum(increase(moq_client_startup_time_seconds_sum{moq_player_session_id=~\"$client_session\"}[5m])) / sum(increase(moq_client_startup_time_seconds_count{moq_player_session_id=~\"$client_session\"}[5m]))",
+					"refId": "A"
 				}
-			  ]
-			},
-			"unit": "s"
-		  },
-		  "overrides": []
-		},
-		"gridPos": {
-		  "h": 4,
-		  "w": 4,
-		  "x": 20,
-		  "y": 0
-		},
-		"id": 6,
-		"options": {
-		  "colorMode": "value",
-		  "graphMode": "area",
-		  "justifyMode": "auto",
-		  "orientation": "auto",
-		  "percentChangeColorMode": "standard",
-		  "reduceOptions": {
-			"calcs": [
-			  "lastNotNull"
 			],
-			"fields": "",
-			"values": false
-		  },
-		  "showPercentChange": false,
-		  "textMode": "auto",
-		  "wideLayout": true
+			"title": "Avg Startup Time",
+			"type": "stat"
 		},
-		"pluginVersion": "12.3.1",
-		"targets": [
-		  {
-			"expr": "sum(increase(moq_client_startup_time_seconds_sum{moq_player_session_id=~\"$client_session\"}[5m])) / sum(increase(moq_client_startup_time_seconds_count{moq_player_session_id=~\"$client_session\"}[5m]))",
-			"refId": "A"
-		  }
-		],
-		"title": "Avg Startup Time",
-		"type": "stat"
-	  },
-	  {
-		"collapsed": false,
-		"gridPos": {
-		  "h": 1,
-		  "w": 24,
-		  "x": 0,
-		  "y": 4
-		},
-		"id": 10,
-		"panels": [],
-		"title": "Client Experience",
-		"type": "row"
-	  },
-	  {
-		"datasource": {
-		  "type": "prometheus",
-		  "uid": "prometheus"
-		},
-		"description": "How far ahead of playback the client is buffered (higher = more buffer headroom)",
-		"fieldConfig": {
-		  "defaults": {
-			"color": {
-			  "mode": "palette-classic"
+		{
+			"collapsed": false,
+			"gridPos": {
+				"h": 1,
+				"w": 24,
+				"x": 0,
+				"y": 4
 			},
-			"custom": {
-			  "axisBorderShow": false,
-			  "axisCenteredZero": false,
-			  "axisColorMode": "text",
-			  "axisLabel": "",
-			  "axisPlacement": "auto",
-			  "barAlignment": 0,
-			  "barWidthFactor": 0.6,
-			  "drawStyle": "line",
-			  "fillOpacity": 10,
-			  "gradientMode": "none",
-			  "hideFrom": {
-				"legend": false,
-				"tooltip": false,
-				"viz": false
-			  },
-			  "insertNulls": false,
-			  "lineInterpolation": "smooth",
-			  "lineWidth": 1,
-			  "pointSize": 5,
-			  "scaleDistribution": {
-				"type": "linear"
-			  },
-			  "showPoints": "auto",
-			  "showValues": false,
-			  "spanNulls": false,
-			  "stacking": {
-				"group": "A",
-				"mode": "none"
-			  },
-			  "thresholdsStyle": {
-				"mode": "off"
-			  }
+			"id": 10,
+			"panels": [],
+			"title": "Client Experience",
+			"type": "row"
+		},
+		{
+			"datasource": {
+				"type": "prometheus",
+				"uid": "prometheus"
 			},
-			"mappings": [],
-			"thresholds": {
-			  "mode": "absolute",
-			  "steps": [
-				{
-				  "color": "green",
-				  "value": 0
+			"description": "How far ahead of playback the client is buffered (higher = more buffer headroom)",
+			"fieldConfig": {
+				"defaults": {
+					"color": {
+						"mode": "palette-classic"
+					},
+					"custom": {
+						"axisBorderShow": false,
+						"axisCenteredZero": false,
+						"axisColorMode": "text",
+						"axisLabel": "",
+						"axisPlacement": "auto",
+						"barAlignment": 0,
+						"barWidthFactor": 0.6,
+						"drawStyle": "line",
+						"fillOpacity": 10,
+						"gradientMode": "none",
+						"hideFrom": {
+							"legend": false,
+							"tooltip": false,
+							"viz": false
+						},
+						"insertNulls": false,
+						"lineInterpolation": "smooth",
+						"lineWidth": 1,
+						"pointSize": 5,
+						"scaleDistribution": {
+							"type": "linear"
+						},
+						"showPoints": "auto",
+						"showValues": false,
+						"spanNulls": false,
+						"stacking": {
+							"group": "A",
+							"mode": "none"
+						},
+						"thresholdsStyle": {
+							"mode": "off"
+						}
+					},
+					"mappings": [],
+					"thresholds": {
+						"mode": "absolute",
+						"steps": [
+							{
+								"color": "green",
+								"value": 0
+							},
+							{
+								"color": "red",
+								"value": 80
+							}
+						]
+					},
+					"unit": "s"
 				},
-				{
-				  "color": "red",
-				  "value": 80
+				"overrides": []
+			},
+			"gridPos": {
+				"h": 8,
+				"w": 8,
+				"x": 0,
+				"y": 5
+			},
+			"id": 11,
+			"options": {
+				"legend": {
+					"calcs": [],
+					"displayMode": "list",
+					"placement": "bottom",
+					"showLegend": true
+				},
+				"tooltip": {
+					"hideZeros": false,
+					"mode": "single",
+					"sort": "none"
 				}
-			  ]
 			},
-			"unit": "s"
-		  },
-		  "overrides": []
-		},
-		"gridPos": {
-		  "h": 8,
-		  "w": 8,
-		  "x": 0,
-		  "y": 5
-		},
-		"id": 11,
-		"options": {
-		  "legend": {
-			"calcs": [],
-			"displayMode": "list",
-			"placement": "bottom",
-			"showLegend": true
-		  },
-		  "tooltip": {
-			"hideZeros": false,
-			"mode": "single",
-			"sort": "none"
-		  }
-		},
-		"pluginVersion": "12.3.1",
-		"targets": [
-		  {
-			"expr": "histogram_quantile(0.5, sum(rate(moq_client_buffer_length_seconds_bucket{moq_player_session_id=~\"$client_session\"}[5m])) by (le))",
-			"legendFormat": "p50",
-			"refId": "A"
-		  },
-		  {
-			"expr": "histogram_quantile(0.95, sum(rate(moq_client_buffer_length_seconds_bucket{moq_player_session_id=~\"$client_session\"}[5m])) by (le))",
-			"legendFormat": "p95",
-			"refId": "B"
-		  },
-		  {
-			"expr": "histogram_quantile(0.99, sum(rate(moq_client_buffer_length_seconds_bucket{moq_player_session_id=~\"$client_session\"}[5m])) by (le))",
-			"legendFormat": "p99",
-			"refId": "C"
-		  }
-		],
-		"title": "Buffer Length Distribution",
-		"type": "timeseries"
-	  },
-	  {
-		"datasource": {
-		  "type": "prometheus",
-		  "uid": "prometheus"
-		},
-		"description": "Time-to-first-frame from subscription to render",
-		"fieldConfig": {
-		  "defaults": {
-			"color": {
-			  "mode": "palette-classic"
-			},
-			"custom": {
-			  "axisBorderShow": false,
-			  "axisCenteredZero": false,
-			  "axisColorMode": "text",
-			  "axisLabel": "",
-			  "axisPlacement": "auto",
-			  "barAlignment": 0,
-			  "barWidthFactor": 0.6,
-			  "drawStyle": "line",
-			  "fillOpacity": 10,
-			  "gradientMode": "none",
-			  "hideFrom": {
-				"legend": false,
-				"tooltip": false,
-				"viz": false
-			  },
-			  "insertNulls": false,
-			  "lineInterpolation": "smooth",
-			  "lineWidth": 1,
-			  "pointSize": 5,
-			  "scaleDistribution": {
-				"type": "linear"
-			  },
-			  "showPoints": "auto",
-			  "showValues": false,
-			  "spanNulls": false,
-			  "stacking": {
-				"group": "A",
-				"mode": "none"
-			  },
-			  "thresholdsStyle": {
-				"mode": "off"
-			  }
-			},
-			"mappings": [],
-			"thresholds": {
-			  "mode": "absolute",
-			  "steps": [
+			"pluginVersion": "12.3.1",
+			"targets": [
 				{
-				  "color": "green",
-				  "value": 0
+					"expr": "histogram_quantile(0.5, sum(rate(moq_client_buffer_length_seconds_bucket{moq_player_session_id=~\"$client_session\"}[5m])) by (le))",
+					"legendFormat": "p50",
+					"refId": "A"
 				},
 				{
-				  "color": "red",
-				  "value": 80
+					"expr": "histogram_quantile(0.95, sum(rate(moq_client_buffer_length_seconds_bucket{moq_player_session_id=~\"$client_session\"}[5m])) by (le))",
+					"legendFormat": "p95",
+					"refId": "B"
+				},
+				{
+					"expr": "histogram_quantile(0.99, sum(rate(moq_client_buffer_length_seconds_bucket{moq_player_session_id=~\"$client_session\"}[5m])) by (le))",
+					"legendFormat": "p99",
+					"refId": "C"
 				}
-			  ]
-			},
-			"unit": "s"
-		  },
-		  "overrides": []
-		},
-		"gridPos": {
-		  "h": 8,
-		  "w": 8,
-		  "x": 8,
-		  "y": 5
-		},
-		"id": 12,
-		"options": {
-		  "legend": {
-			"calcs": [],
-			"displayMode": "list",
-			"placement": "bottom",
-			"showLegend": true
-		  },
-		  "tooltip": {
-			"hideZeros": false,
-			"mode": "single",
-			"sort": "none"
-		  }
-		},
-		"pluginVersion": "12.3.1",
-		"targets": [
-		  {
-			"expr": "histogram_quantile(0.5, sum(rate(moq_client_startup_time_seconds_bucket[5m])) by (le))",
-			"legendFormat": "p50",
-			"refId": "A"
-		  },
-		  {
-			"expr": "histogram_quantile(0.95, sum(rate(moq_client_startup_time_seconds_bucket[5m])) by (le))",
-			"legendFormat": "p95",
-			"refId": "B"
-		  },
-		  {
-			"expr": "histogram_quantile(0.99, sum(rate(moq_client_startup_time_seconds_bucket[5m])) by (le))",
-			"legendFormat": "p99",
-			"refId": "C"
-		  }
-		],
-		"title": "Startup Time (TTFF) Distribution",
-		"type": "timeseries"
-	  },
-	  {
-		"datasource": {
-		  "type": "prometheus",
-		  "uid": "prometheus"
-		},
-		"description": "WebCodecs decode submission time per frame",
-		"fieldConfig": {
-		  "defaults": {
-			"color": {
-			  "mode": "palette-classic"
-			},
-			"custom": {
-			  "axisBorderShow": false,
-			  "axisCenteredZero": false,
-			  "axisColorMode": "text",
-			  "axisLabel": "",
-			  "axisPlacement": "auto",
-			  "barAlignment": 0,
-			  "barWidthFactor": 0.6,
-			  "drawStyle": "line",
-			  "fillOpacity": 10,
-			  "gradientMode": "none",
-			  "hideFrom": {
-				"legend": false,
-				"tooltip": false,
-				"viz": false
-			  },
-			  "insertNulls": false,
-			  "lineInterpolation": "smooth",
-			  "lineWidth": 1,
-			  "pointSize": 5,
-			  "scaleDistribution": {
-				"type": "linear"
-			  },
-			  "showPoints": "auto",
-			  "showValues": false,
-			  "spanNulls": false,
-			  "stacking": {
-				"group": "A",
-				"mode": "none"
-			  },
-			  "thresholdsStyle": {
-				"mode": "off"
-			  }
-			},
-			"mappings": [],
-			"thresholds": {
-			  "mode": "absolute",
-			  "steps": [
-				{
-				  "color": "green",
-				  "value": 0
-				},
-				{
-				  "color": "red",
-				  "value": 80
-				}
-			  ]
-			},
-			"unit": "s"
-		  },
-		  "overrides": []
-		},
-		"gridPos": {
-		  "h": 8,
-		  "w": 8,
-		  "x": 16,
-		  "y": 5
-		},
-		"id": 13,
-		"options": {
-		  "legend": {
-			"calcs": [],
-			"displayMode": "list",
-			"placement": "bottom",
-			"showLegend": true
-		  },
-		  "tooltip": {
-			"hideZeros": false,
-			"mode": "single",
-			"sort": "none"
-		  }
-		},
-		"pluginVersion": "12.3.1",
-		"targets": [
-		  {
-			"expr": "histogram_quantile(0.5, sum(rate(moq_client_decode_time_seconds_bucket[5m])) by (le))",
-			"legendFormat": "p50",
-			"refId": "A"
-		  },
-		  {
-			"expr": "histogram_quantile(0.95, sum(rate(moq_client_decode_time_seconds_bucket[5m])) by (le))",
-			"legendFormat": "p95",
-			"refId": "B"
-		  },
-		  {
-			"expr": "histogram_quantile(0.99, sum(rate(moq_client_decode_time_seconds_bucket[5m])) by (le))",
-			"legendFormat": "p99",
-			"refId": "C"
-		  }
-		],
-		"title": "Decode Time Distribution",
-		"type": "timeseries"
-	  },
-	  {
-		"datasource": {
-		  "type": "prometheus",
-		  "uid": "prometheus"
-		},
-		"description": "Frames successfully decoded per second",
-		"fieldConfig": {
-		  "defaults": {
-			"color": {
-			  "mode": "palette-classic"
-			},
-			"custom": {
-			  "axisBorderShow": false,
-			  "axisCenteredZero": false,
-			  "axisColorMode": "text",
-			  "axisLabel": "",
-			  "axisPlacement": "auto",
-			  "barAlignment": 0,
-			  "barWidthFactor": 0.6,
-			  "drawStyle": "line",
-			  "fillOpacity": 20,
-			  "gradientMode": "none",
-			  "hideFrom": {
-				"legend": false,
-				"tooltip": false,
-				"viz": false
-			  },
-			  "insertNulls": false,
-			  "lineInterpolation": "linear",
-			  "lineWidth": 1,
-			  "pointSize": 5,
-			  "scaleDistribution": {
-				"type": "linear"
-			  },
-			  "showPoints": "auto",
-			  "showValues": false,
-			  "spanNulls": false,
-			  "stacking": {
-				"group": "A",
-				"mode": "none"
-			  },
-			  "thresholdsStyle": {
-				"mode": "off"
-			  }
-			},
-			"mappings": [],
-			"thresholds": {
-			  "mode": "absolute",
-			  "steps": [
-				{
-				  "color": "green",
-				  "value": 0
-				},
-				{
-				  "color": "red",
-				  "value": 80
-				}
-			  ]
-			},
-			"unit": "fps"
-		  },
-		  "overrides": []
-		},
-		"gridPos": {
-		  "h": 8,
-		  "w": 8,
-		  "x": 0,
-		  "y": 13
-		},
-		"id": 14,
-		"options": {
-		  "legend": {
-			"calcs": [],
-			"displayMode": "list",
-			"placement": "bottom",
-			"showLegend": true
-		  },
-		  "tooltip": {
-			"hideZeros": false,
-			"mode": "single",
-			"sort": "none"
-		  }
-		},
-		"pluginVersion": "12.3.1",
-		"targets": [
-		  {
-			"expr": "sum(rate(moq_client_frames_decoded_total[1m]))",
-			"legendFormat": "frames/s",
-			"refId": "A"
-		  }
-		],
-		"title": "Frames Decoded Rate",
-		"type": "timeseries"
-	  },
-	  {
-		"datasource": {
-		  "type": "prometheus",
-		  "uid": "prometheus"
-		},
-		"description": "Data starvation events per minute",
-		"fieldConfig": {
-		  "defaults": {
-			"color": {
-			  "mode": "thresholds"
-			},
-			"custom": {
-			  "axisBorderShow": false,
-			  "axisCenteredZero": false,
-			  "axisColorMode": "text",
-			  "axisLabel": "",
-			  "axisPlacement": "auto",
-			  "barAlignment": 0,
-			  "barWidthFactor": 0.6,
-			  "drawStyle": "line",
-			  "fillOpacity": 20,
-			  "gradientMode": "none",
-			  "hideFrom": {
-				"legend": false,
-				"tooltip": false,
-				"viz": false
-			  },
-			  "insertNulls": false,
-			  "lineInterpolation": "linear",
-			  "lineWidth": 1,
-			  "pointSize": 5,
-			  "scaleDistribution": {
-				"type": "linear"
-			  },
-			  "showPoints": "auto",
-			  "showValues": false,
-			  "spanNulls": false,
-			  "stacking": {
-				"group": "A",
-				"mode": "none"
-			  },
-			  "thresholdsStyle": {
-				"mode": "off"
-			  }
-			},
-			"mappings": [],
-			"thresholds": {
-			  "mode": "absolute",
-			  "steps": [
-				{
-				  "color": "green",
-				  "value": 0
-				},
-				{
-				  "color": "yellow",
-				  "value": 1
-				},
-				{
-				  "color": "red",
-				  "value": 5
-				}
-			  ]
-			},
-			"unit": "short"
-		  },
-		  "overrides": []
-		},
-		"gridPos": {
-		  "h": 8,
-		  "w": 8,
-		  "x": 8,
-		  "y": 13
-		},
-		"id": 15,
-		"options": {
-		  "legend": {
-			"calcs": [],
-			"displayMode": "list",
-			"placement": "bottom",
-			"showLegend": true
-		  },
-		  "tooltip": {
-			"hideZeros": false,
-			"mode": "single",
-			"sort": "none"
-		  }
-		},
-		"pluginVersion": "12.3.1",
-		"targets": [
-		  {
-			"expr": "sum(rate(moq_client_rebuffer_count_total[1m])) * 60",
-			"legendFormat": "rebuffers/min",
-			"refId": "A"
-		  }
-		],
-		"title": "Rebuffer Events",
-		"type": "timeseries"
-	  },
-	  {
-		"datasource": {
-		  "type": "prometheus",
-		  "uid": "prometheus"
-		},
-		"description": "Track/quality changes per minute",
-		"fieldConfig": {
-		  "defaults": {
-			"color": {
-			  "mode": "palette-classic"
-			},
-			"custom": {
-			  "axisBorderShow": false,
-			  "axisCenteredZero": false,
-			  "axisColorMode": "text",
-			  "axisLabel": "",
-			  "axisPlacement": "auto",
-			  "barAlignment": 0,
-			  "barWidthFactor": 0.6,
-			  "drawStyle": "line",
-			  "fillOpacity": 20,
-			  "gradientMode": "none",
-			  "hideFrom": {
-				"legend": false,
-				"tooltip": false,
-				"viz": false
-			  },
-			  "insertNulls": false,
-			  "lineInterpolation": "linear",
-			  "lineWidth": 1,
-			  "pointSize": 5,
-			  "scaleDistribution": {
-				"type": "linear"
-			  },
-			  "showPoints": "auto",
-			  "showValues": false,
-			  "spanNulls": false,
-			  "stacking": {
-				"group": "A",
-				"mode": "none"
-			  },
-			  "thresholdsStyle": {
-				"mode": "off"
-			  }
-			},
-			"mappings": [],
-			"thresholds": {
-			  "mode": "absolute",
-			  "steps": [
-				{
-				  "color": "green",
-				  "value": 0
-				},
-				{
-				  "color": "red",
-				  "value": 80
-				}
-			  ]
-			},
-			"unit": "short"
-		  },
-		  "overrides": []
-		},
-		"gridPos": {
-		  "h": 8,
-		  "w": 8,
-		  "x": 16,
-		  "y": 13
-		},
-		"id": 16,
-		"options": {
-		  "legend": {
-			"calcs": [],
-			"displayMode": "list",
-			"placement": "bottom",
-			"showLegend": true
-		  },
-		  "tooltip": {
-			"hideZeros": false,
-			"mode": "single",
-			"sort": "none"
-		  }
-		},
-		"pluginVersion": "12.3.1",
-		"targets": [
-		  {
-			"expr": "sum(rate(moq_client_quality_switches_total[1m])) * 60",
-			"legendFormat": "switches/min",
-			"refId": "A"
-		  }
-		],
-		"title": "Quality Switches",
-		"type": "timeseries"
-	  },
-	  {
-		"datasource": {
-		  "type": "prometheus",
-		  "uid": "prometheus"
-		},
-		"description": "Time between keyframes (GOP duration)",
-		"fieldConfig": {
-		  "defaults": {
-			"color": {
-			  "mode": "palette-classic"
-			},
-			"custom": {
-			  "axisBorderShow": false,
-			  "axisCenteredZero": false,
-			  "axisColorMode": "text",
-			  "axisLabel": "",
-			  "axisPlacement": "auto",
-			  "barAlignment": 0,
-			  "barWidthFactor": 0.6,
-			  "drawStyle": "line",
-			  "fillOpacity": 10,
-			  "gradientMode": "none",
-			  "hideFrom": {
-				"legend": false,
-				"tooltip": false,
-				"viz": false
-			  },
-			  "insertNulls": false,
-			  "lineInterpolation": "smooth",
-			  "lineWidth": 1,
-			  "pointSize": 5,
-			  "scaleDistribution": {
-				"type": "linear"
-			  },
-			  "showPoints": "auto",
-			  "showValues": false,
-			  "spanNulls": false,
-			  "stacking": {
-				"group": "A",
-				"mode": "none"
-			  },
-			  "thresholdsStyle": {
-				"mode": "off"
-			  }
-			},
-			"mappings": [],
-			"thresholds": {
-			  "mode": "absolute",
-			  "steps": [
-				{
-				  "color": "green",
-				  "value": 0
-				},
-				{
-				  "color": "red",
-				  "value": 80
-				}
-			  ]
-			},
-			"unit": "s"
-		  },
-		  "overrides": []
-		},
-		"gridPos": {
-		  "h": 8,
-		  "w": 12,
-		  "x": 0,
-		  "y": 21
-		},
-		"id": 17,
-		"options": {
-		  "legend": {
-			"calcs": [],
-			"displayMode": "list",
-			"placement": "bottom",
-			"showLegend": true
-		  },
-		  "tooltip": {
-			"hideZeros": false,
-			"mode": "single",
-			"sort": "none"
-		  }
-		},
-		"pluginVersion": "12.3.1",
-		"targets": [
-		  {
-			"expr": "histogram_quantile(0.5, sum(rate(moq_client_keyframe_interval_seconds_bucket[5m])) by (le))",
-			"legendFormat": "p50",
-			"refId": "A"
-		  },
-		  {
-			"expr": "histogram_quantile(0.95, sum(rate(moq_client_keyframe_interval_seconds_bucket[5m])) by (le))",
-			"legendFormat": "p95",
-			"refId": "B"
-		  }
-		],
-		"title": "Keyframe Interval Distribution",
-		"type": "timeseries"
-	  },
-	  {
-		"datasource": {
-		  "type": "prometheus",
-		  "uid": "prometheus"
-		},
-		"description": "Average buffer length per codec",
-		"fieldConfig": {
-		  "defaults": {
-			"color": {
-			  "mode": "palette-classic"
-			},
-			"custom": {
-			  "axisBorderShow": false,
-			  "axisCenteredZero": false,
-			  "axisColorMode": "text",
-			  "axisLabel": "",
-			  "axisPlacement": "auto",
-			  "barAlignment": 0,
-			  "barWidthFactor": 0.6,
-			  "drawStyle": "line",
-			  "fillOpacity": 10,
-			  "gradientMode": "none",
-			  "hideFrom": {
-				"legend": false,
-				"tooltip": false,
-				"viz": false
-			  },
-			  "insertNulls": false,
-			  "lineInterpolation": "linear",
-			  "lineWidth": 1,
-			  "pointSize": 5,
-			  "scaleDistribution": {
-				"type": "linear"
-			  },
-			  "showPoints": "auto",
-			  "showValues": false,
-			  "spanNulls": false,
-			  "stacking": {
-				"group": "A",
-				"mode": "none"
-			  },
-			  "thresholdsStyle": {
-				"mode": "off"
-			  }
-			},
-			"mappings": [],
-			"thresholds": {
-			  "mode": "absolute",
-			  "steps": [
-				{
-				  "color": "green",
-				  "value": 0
-				},
-				{
-				  "color": "red",
-				  "value": 80
-				}
-			  ]
-			},
-			"unit": "s"
-		  },
-		  "overrides": []
-		},
-		"gridPos": {
-		  "h": 8,
-		  "w": 12,
-		  "x": 12,
-		  "y": 21
-		},
-		"id": 18,
-		"options": {
-		  "legend": {
-			"calcs": [],
-			"displayMode": "list",
-			"placement": "bottom",
-			"showLegend": true
-		  },
-		  "tooltip": {
-			"hideZeros": false,
-			"mode": "single",
-			"sort": "none"
-		  }
-		},
-		"pluginVersion": "12.3.1",
-		"targets": [
-		  {
-			"expr": "sum by (codec) (rate(moq_client_buffer_length_seconds_sum[5m])) / sum by (codec) (rate(moq_client_buffer_length_seconds_count[5m]))",
-			"legendFormat": "{{codec}}",
-			"refId": "A"
-		  }
-		],
-		"title": "Avg Buffer by Codec",
-		"type": "timeseries"
-	  },
-	  {
-		"collapsed": false,
-		"gridPos": {
-		  "h": 1,
-		  "w": 24,
-		  "x": 0,
-		  "y": 29
-		},
-		"id": 20,
-		"panels": [],
-		"title": "Relay Performance",
-		"type": "row"
-	  },
-	  {
-		"datasource": {
-		  "type": "prometheus",
-		  "uid": "prometheus"
-		},
-		"fieldConfig": {
-		  "defaults": {
-			"color": {
-			  "mode": "palette-classic"
-			},
-			"custom": {
-			  "axisBorderShow": false,
-			  "axisCenteredZero": false,
-			  "axisColorMode": "text",
-			  "axisLabel": "",
-			  "axisPlacement": "auto",
-			  "barAlignment": 0,
-			  "barWidthFactor": 0.6,
-			  "drawStyle": "line",
-			  "fillOpacity": 20,
-			  "gradientMode": "none",
-			  "hideFrom": {
-				"legend": false,
-				"tooltip": false,
-				"viz": false
-			  },
-			  "insertNulls": false,
-			  "lineInterpolation": "smooth",
-			  "lineWidth": 1,
-			  "pointSize": 5,
-			  "scaleDistribution": {
-				"type": "linear"
-			  },
-			  "showPoints": "auto",
-			  "showValues": false,
-			  "spanNulls": false,
-			  "stacking": {
-				"group": "A",
-				"mode": "none"
-			  },
-			  "thresholdsStyle": {
-				"mode": "off"
-			  }
-			},
-			"mappings": [],
-			"thresholds": {
-			  "mode": "absolute",
-			  "steps": [
-				{
-				  "color": "green",
-				  "value": 0
-				},
-				{
-				  "color": "red",
-				  "value": 80
-				}
-			  ]
-			},
-			"unit": "short"
-		  },
-		  "overrides": []
-		},
-		"gridPos": {
-		  "h": 8,
-		  "w": 12,
-		  "x": 0,
-		  "y": 30
-		},
-		"id": 21,
-		"options": {
-		  "legend": {
-			"calcs": [],
-			"displayMode": "list",
-			"placement": "bottom",
-			"showLegend": true
-		  },
-		  "tooltip": {
-			"hideZeros": false,
-			"mode": "single",
-			"sort": "none"
-		  }
-		},
-		"pluginVersion": "12.3.1",
-		"targets": [
-		  {
-			"expr": "sum(moq_relay_active_subscribers)",
-			"legendFormat": "subscribers",
-			"refId": "A"
-		  },
-		  {
-			"expr": "sum(moq_relay_active_streams)",
-			"legendFormat": "streams",
-			"refId": "B"
-		  },
-		  {
-			"expr": "sum(moq_relay_active_connections)",
-			"legendFormat": "connections",
-			"refId": "C"
-		  }
-		],
-		"title": "Viewers & Streams Over Time",
-		"type": "timeseries"
-	  },
-	  {
-		"datasource": {
-		  "type": "prometheus",
-		  "uid": "prometheus"
-		},
-		"fieldConfig": {
-		  "defaults": {
-			"color": {
-			  "mode": "palette-classic"
-			},
-			"custom": {
-			  "axisBorderShow": false,
-			  "axisCenteredZero": false,
-			  "axisColorMode": "text",
-			  "axisLabel": "",
-			  "axisPlacement": "auto",
-			  "barAlignment": 0,
-			  "barWidthFactor": 0.6,
-			  "drawStyle": "line",
-			  "fillOpacity": 30,
-			  "gradientMode": "none",
-			  "hideFrom": {
-				"legend": false,
-				"tooltip": false,
-				"viz": false
-			  },
-			  "insertNulls": false,
-			  "lineInterpolation": "linear",
-			  "lineWidth": 1,
-			  "pointSize": 5,
-			  "scaleDistribution": {
-				"type": "linear"
-			  },
-			  "showPoints": "auto",
-			  "showValues": false,
-			  "spanNulls": false,
-			  "stacking": {
-				"group": "A",
-				"mode": "none"
-			  },
-			  "thresholdsStyle": {
-				"mode": "off"
-			  }
-			},
-			"mappings": [],
-			"thresholds": {
-			  "mode": "absolute",
-			  "steps": [
-				{
-				  "color": "green",
-				  "value": 0
-				},
-				{
-				  "color": "red",
-				  "value": 80
-				}
-			  ]
-			},
-			"unit": "short"
-		  },
-		  "overrides": []
-		},
-		"gridPos": {
-		  "h": 8,
-		  "w": 12,
-		  "x": 12,
-		  "y": 30
-		},
-		"id": 22,
-		"options": {
-		  "legend": {
-			"calcs": [],
-			"displayMode": "list",
-			"placement": "bottom",
-			"showLegend": true
-		  },
-		  "tooltip": {
-			"hideZeros": false,
-			"mode": "single",
-			"sort": "none"
-		  }
-		},
-		"pluginVersion": "12.3.1",
-		"targets": [
-		  {
-			"expr": "sum(rate(moq_relay_connections_total[1m])) * 60",
-			"legendFormat": "relay connections/min",
-			"refId": "A"
-		  },
-		  {
-			"expr": "sum(rate(moq_client_connections_total[1m])) * 60",
-			"legendFormat": "client connections/min",
-			"refId": "B"
-		  }
-		],
-		"title": "Connection Rate Over Time",
-		"type": "timeseries"
-	  },
-	  {
-		"datasource": {
-		  "type": "prometheus",
-		  "uid": "prometheus"
-		},
-		"description": "Effective fanout (derived periodically); not per-group attribution",
-		"fieldConfig": {
-		  "defaults": {
-			"color": {
-			  "mode": "palette-classic"
-			},
-			"custom": {
-			  "axisBorderShow": false,
-			  "axisCenteredZero": false,
-			  "axisColorMode": "text",
-			  "axisLabel": "",
-			  "axisPlacement": "auto",
-			  "barAlignment": 0,
-			  "barWidthFactor": 0.6,
-			  "drawStyle": "line",
-			  "fillOpacity": 10,
-			  "gradientMode": "none",
-			  "hideFrom": {
-				"legend": false,
-				"tooltip": false,
-				"viz": false
-			  },
-			  "insertNulls": false,
-			  "lineInterpolation": "linear",
-			  "lineWidth": 1,
-			  "pointSize": 5,
-			  "scaleDistribution": {
-				"type": "linear"
-			  },
-			  "showPoints": "auto",
-			  "showValues": false,
-			  "spanNulls": false,
-			  "stacking": {
-				"group": "A",
-				"mode": "none"
-			  },
-			  "thresholdsStyle": {
-				"mode": "off"
-			  }
-			},
-			"mappings": [],
-			"thresholds": {
-			  "mode": "absolute",
-			  "steps": [
-				{
-				  "color": "green",
-				  "value": 0
-				},
-				{
-				  "color": "red",
-				  "value": 80
-				}
-			  ]
-			},
-			"unit": "short"
-		  },
-		  "overrides": []
-		},
-		"gridPos": {
-		  "h": 8,
-		  "w": 12,
-		  "x": 0,
-		  "y": 38
-		},
-		"id": 23,
-		"options": {
-		  "legend": {
-			"calcs": [],
-			"displayMode": "list",
-			"placement": "bottom",
-			"showLegend": true
-		  },
-		  "tooltip": {
-			"hideZeros": false,
-			"mode": "single",
-			"sort": "none"
-		  }
-		},
-		"pluginVersion": "12.3.1",
-		"targets": [
-		  {
-			"editorMode": "code",
-			"expr": "histogram_quantile(0.5, sum(rate(moq_relay_fanout_bucket[5m])) by (le))",
-			"legendFormat": "p50 fanout",
-			"range": true,
-			"refId": "A"
-		  },
-		  {
-			"expr": "histogram_quantile(0.95, sum(rate(moq_relay_fanout_bucket[5m])) by (le))",
-			"legendFormat": "p95 fanout",
-			"refId": "B"
-		  },
-		  {
-			"editorMode": "code",
-			"expr": "sum(rate(moq_relay_fanout_sum[5m])) / sum(rate(moq_relay_fanout_count[5m]))",
-			"legendFormat": "avg fanout",
-			"range": true,
-			"refId": "C"
-		  }
-		],
-		"title": "Fanout Distribution",
-		"type": "timeseries"
-	  },
-	  {
-		"datasource": {
-		  "type": "prometheus",
-		  "uid": "prometheus"
-		},
-		"description": "Total fanout ratio: subscribers / streams",
-		"fieldConfig": {
-		  "defaults": {
-			"color": {
-			  "mode": "thresholds"
-			},
-			"decimals": 1,
-			"displayName": "subscribers/stream",
-			"mappings": [],
-			"thresholds": {
-			  "mode": "absolute",
-			  "steps": [
-				{
-				  "color": "yellow",
-				  "value": 0
-				},
-				{
-				  "color": "green",
-				  "value": 2
-				}
-			  ]
-			},
-			"unit": "short"
-		  },
-		  "overrides": []
-		},
-		"gridPos": {
-		  "h": 8,
-		  "w": 6,
-		  "x": 12,
-		  "y": 38
-		},
-		"id": 24,
-		"options": {
-		  "colorMode": "value",
-		  "graphMode": "area",
-		  "justifyMode": "auto",
-		  "orientation": "auto",
-		  "percentChangeColorMode": "standard",
-		  "reduceOptions": {
-			"calcs": [
-			  "lastNotNull"
 			],
-			"fields": "",
-			"values": false
-		  },
-		  "showPercentChange": false,
-		  "textMode": "auto",
-		  "wideLayout": true
+			"title": "Buffer Length Distribution",
+			"type": "timeseries"
 		},
-		"pluginVersion": "12.3.1",
-		"targets": [
-		  {
-			"expr": "sum(moq_relay_active_subscribers) / sum(moq_relay_active_streams) or vector(0)",
-			"refId": "A"
-		  }
-		],
-		"title": "Fanout Efficiency",
-		"type": "stat"
-	  },
-	  {
-		"datasource": {
-		  "type": "prometheus",
-		  "uid": "prometheus"
-		},
-		"description": "Fanout histogram summary",
-		"fieldConfig": {
-		  "defaults": {
-			"displayName": "fanout samples (5m)",
-			"mappings": [],
-			"thresholds": {
-			  "mode": "absolute",
-			  "steps": [
-				{
-				  "color": "green",
-				  "value": 0
+		{
+			"datasource": {
+				"type": "prometheus",
+				"uid": "prometheus"
+			},
+			"description": "Time-to-first-frame from subscription to render",
+			"fieldConfig": {
+				"defaults": {
+					"color": {
+						"mode": "palette-classic"
+					},
+					"custom": {
+						"axisBorderShow": false,
+						"axisCenteredZero": false,
+						"axisColorMode": "text",
+						"axisLabel": "",
+						"axisPlacement": "auto",
+						"barAlignment": 0,
+						"barWidthFactor": 0.6,
+						"drawStyle": "line",
+						"fillOpacity": 10,
+						"gradientMode": "none",
+						"hideFrom": {
+							"legend": false,
+							"tooltip": false,
+							"viz": false
+						},
+						"insertNulls": false,
+						"lineInterpolation": "smooth",
+						"lineWidth": 1,
+						"pointSize": 5,
+						"scaleDistribution": {
+							"type": "linear"
+						},
+						"showPoints": "auto",
+						"showValues": false,
+						"spanNulls": false,
+						"stacking": {
+							"group": "A",
+							"mode": "none"
+						},
+						"thresholdsStyle": {
+							"mode": "off"
+						}
+					},
+					"mappings": [],
+					"thresholds": {
+						"mode": "absolute",
+						"steps": [
+							{
+								"color": "green",
+								"value": 0
+							},
+							{
+								"color": "red",
+								"value": 80
+							}
+						]
+					},
+					"unit": "s"
 				},
-				{
-				  "color": "red",
-				  "value": 80
+				"overrides": []
+			},
+			"gridPos": {
+				"h": 8,
+				"w": 8,
+				"x": 8,
+				"y": 5
+			},
+			"id": 12,
+			"options": {
+				"legend": {
+					"calcs": [],
+					"displayMode": "list",
+					"placement": "bottom",
+					"showLegend": true
+				},
+				"tooltip": {
+					"hideZeros": false,
+					"mode": "single",
+					"sort": "none"
 				}
-			  ]
 			},
-			"unit": "short"
-		  },
-		  "overrides": []
-		},
-		"gridPos": {
-		  "h": 8,
-		  "w": 6,
-		  "x": 18,
-		  "y": 38
-		},
-		"id": 25,
-		"options": {
-		  "colorMode": "value",
-		  "graphMode": "area",
-		  "justifyMode": "auto",
-		  "orientation": "auto",
-		  "percentChangeColorMode": "standard",
-		  "reduceOptions": {
-			"calcs": [
-			  "lastNotNull"
-			],
-			"fields": "",
-			"values": false
-		  },
-		  "showPercentChange": false,
-		  "textMode": "auto",
-		  "wideLayout": true
-		},
-		"pluginVersion": "12.3.1",
-		"targets": [
-		  {
-			"expr": "sum(increase(moq_relay_fanout_count[5m])) or vector(0)",
-			"refId": "A"
-		  }
-		],
-		"title": "Fanout Stats",
-		"type": "stat"
-	  },
-	  {
-		"collapsed": false,
-		"gridPos": {
-		  "h": 1,
-		  "w": 24,
-		  "x": 0,
-		  "y": 46
-		},
-		"id": 40,
-		"panels": [],
-		"title": "SLO Status",
-		"type": "row"
-	  },
-	  {
-		"datasource": {
-		  "type": "prometheus",
-		  "uid": "prometheus"
-		},
-		"description": "Target: < 500ms",
-		"fieldConfig": {
-		  "defaults": {
-			"color": {
-			  "mode": "thresholds"
-			},
-			"decimals": 3,
-			"mappings": [],
-			"thresholds": {
-			  "mode": "absolute",
-			  "steps": [
+			"pluginVersion": "12.3.1",
+			"targets": [
 				{
-				  "color": "green",
-				  "value": 0
+					"expr": "histogram_quantile(0.5, sum(rate(moq_client_startup_time_seconds_bucket[5m])) by (le))",
+					"legendFormat": "p50",
+					"refId": "A"
 				},
 				{
-				  "color": "yellow",
-				  "value": 0.5
+					"expr": "histogram_quantile(0.95, sum(rate(moq_client_startup_time_seconds_bucket[5m])) by (le))",
+					"legendFormat": "p95",
+					"refId": "B"
 				},
 				{
-				  "color": "red",
-				  "value": 2
+					"expr": "histogram_quantile(0.99, sum(rate(moq_client_startup_time_seconds_bucket[5m])) by (le))",
+					"legendFormat": "p99",
+					"refId": "C"
 				}
-			  ]
-			},
-			"unit": "s"
-		  },
-		  "overrides": []
-		},
-		"gridPos": {
-		  "h": 4,
-		  "w": 8,
-		  "x": 0,
-		  "y": 47
-		},
-		"id": 41,
-		"options": {
-		  "colorMode": "value",
-		  "graphMode": "area",
-		  "justifyMode": "auto",
-		  "orientation": "auto",
-		  "percentChangeColorMode": "standard",
-		  "reduceOptions": {
-			"calcs": [
-			  "lastNotNull"
 			],
-			"fields": "",
-			"values": false
-		  },
-		  "showPercentChange": false,
-		  "textMode": "auto",
-		  "wideLayout": true
+			"title": "Startup Time (TTFF) Distribution",
+			"type": "timeseries"
 		},
-		"pluginVersion": "12.3.1",
-		"targets": [
-		  {
-			"expr": "histogram_quantile(0.95, sum(rate(moq_client_startup_time_seconds_bucket[5m])) by (le)) or vector(0)",
-			"refId": "A"
-		  }
-		],
-		"title": "Time-to-First-Frame p95",
-		"type": "stat"
-	  },
-	  {
-		"datasource": {
-		  "type": "prometheus",
-		  "uid": "prometheus"
-		},
-		"description": "Target: < 50ms",
-		"fieldConfig": {
-		  "defaults": {
-			"color": {
-			  "mode": "thresholds"
+		{
+			"datasource": {
+				"type": "prometheus",
+				"uid": "prometheus"
 			},
-			"decimals": 3,
-			"mappings": [],
-			"thresholds": {
-			  "mode": "absolute",
-			  "steps": [
-				{
-				  "color": "green",
-				  "value": 0
+			"description": "WebCodecs decode submission time per frame",
+			"fieldConfig": {
+				"defaults": {
+					"color": {
+						"mode": "palette-classic"
+					},
+					"custom": {
+						"axisBorderShow": false,
+						"axisCenteredZero": false,
+						"axisColorMode": "text",
+						"axisLabel": "",
+						"axisPlacement": "auto",
+						"barAlignment": 0,
+						"barWidthFactor": 0.6,
+						"drawStyle": "line",
+						"fillOpacity": 10,
+						"gradientMode": "none",
+						"hideFrom": {
+							"legend": false,
+							"tooltip": false,
+							"viz": false
+						},
+						"insertNulls": false,
+						"lineInterpolation": "smooth",
+						"lineWidth": 1,
+						"pointSize": 5,
+						"scaleDistribution": {
+							"type": "linear"
+						},
+						"showPoints": "auto",
+						"showValues": false,
+						"spanNulls": false,
+						"stacking": {
+							"group": "A",
+							"mode": "none"
+						},
+						"thresholdsStyle": {
+							"mode": "off"
+						}
+					},
+					"mappings": [],
+					"thresholds": {
+						"mode": "absolute",
+						"steps": [
+							{
+								"color": "green",
+								"value": 0
+							},
+							{
+								"color": "red",
+								"value": 80
+							}
+						]
+					},
+					"unit": "s"
 				},
-				{
-				  "color": "yellow",
-				  "value": 0.05
+				"overrides": []
+			},
+			"gridPos": {
+				"h": 8,
+				"w": 8,
+				"x": 16,
+				"y": 5
+			},
+			"id": 13,
+			"options": {
+				"legend": {
+					"calcs": [],
+					"displayMode": "list",
+					"placement": "bottom",
+					"showLegend": true
 				},
-				{
-				  "color": "red",
-				  "value": 0.1
+				"tooltip": {
+					"hideZeros": false,
+					"mode": "single",
+					"sort": "none"
 				}
-			  ]
 			},
-			"unit": "s"
-		  },
-		  "overrides": []
-		},
-		"gridPos": {
-		  "h": 4,
-		  "w": 8,
-		  "x": 8,
-		  "y": 47
-		},
-		"id": 42,
-		"options": {
-		  "colorMode": "value",
-		  "graphMode": "area",
-		  "justifyMode": "auto",
-		  "orientation": "auto",
-		  "percentChangeColorMode": "standard",
-		  "reduceOptions": {
-			"calcs": [
-			  "lastNotNull"
-			],
-			"fields": "",
-			"values": false
-		  },
-		  "showPercentChange": false,
-		  "textMode": "auto",
-		  "wideLayout": true
-		},
-		"pluginVersion": "12.3.1",
-		"targets": [
-		  {
-			"expr": "histogram_quantile(0.95, sum(rate(moq_client_decode_time_seconds_bucket[5m])) by (le)) or vector(0)",
-			"refId": "A"
-		  }
-		],
-		"title": "Decode Time p95",
-		"type": "stat"
-	  },
-	  {
-		"datasource": {
-		  "type": "prometheus",
-		  "uid": "prometheus"
-		},
-		"description": "Target: < 1 per minute",
-		"fieldConfig": {
-		  "defaults": {
-			"color": {
-			  "mode": "thresholds"
-			},
-			"decimals": 2,
-			"displayName": "rebuffers/min",
-			"mappings": [],
-			"thresholds": {
-			  "mode": "absolute",
-			  "steps": [
+			"pluginVersion": "12.3.1",
+			"targets": [
 				{
-				  "color": "green",
-				  "value": 0
+					"expr": "histogram_quantile(0.5, sum(rate(moq_client_decode_time_seconds_bucket[5m])) by (le))",
+					"legendFormat": "p50",
+					"refId": "A"
 				},
 				{
-				  "color": "yellow",
-				  "value": 1
+					"expr": "histogram_quantile(0.95, sum(rate(moq_client_decode_time_seconds_bucket[5m])) by (le))",
+					"legendFormat": "p95",
+					"refId": "B"
 				},
 				{
-				  "color": "red",
-				  "value": 5
+					"expr": "histogram_quantile(0.99, sum(rate(moq_client_decode_time_seconds_bucket[5m])) by (le))",
+					"legendFormat": "p99",
+					"refId": "C"
 				}
-			  ]
-			},
-			"unit": "short"
-		  },
-		  "overrides": []
-		},
-		"gridPos": {
-		  "h": 4,
-		  "w": 8,
-		  "x": 16,
-		  "y": 47
-		},
-		"id": 43,
-		"options": {
-		  "colorMode": "value",
-		  "graphMode": "area",
-		  "justifyMode": "auto",
-		  "orientation": "auto",
-		  "percentChangeColorMode": "standard",
-		  "reduceOptions": {
-			"calcs": [
-			  "lastNotNull"
 			],
-			"fields": "",
-			"values": false
-		  },
-		  "showPercentChange": false,
-		  "textMode": "auto",
-		  "wideLayout": true
+			"title": "Decode Time Distribution",
+			"type": "timeseries"
 		},
-		"pluginVersion": "12.3.1",
-		"targets": [
-		  {
-			"expr": "sum(rate(moq_client_rebuffer_count_total[5m])) * 60 or vector(0)",
-			"refId": "A"
-		  }
-		],
-		"title": "Rebuffer Rate",
-		"type": "stat"
-	  },
-	  {
-		"collapsed": false,
-		"gridPos": {
-		  "h": 1,
-		  "w": 24,
-		  "x": 0,
-		  "y": 51
-		},
-		"id": 50,
-		"panels": [],
-		"title": "Trace Search (Relay)",
-		"type": "row"
-	  },
-	  {
-		"datasource": {
-		  "type": "tempo",
-		  "uid": "tempo"
-		},
-		"description": "Enter a connection_id (e.g., conn-123) in the variable above to search relay traces in Tempo",
-		"fieldConfig": {
-		  "defaults": {},
-		  "overrides": []
-		},
-		"gridPos": {
-		  "h": 10,
-		  "w": 24,
-		  "x": 0,
-		  "y": 52
-		},
-		"id": 51,
-		"options": {
-		  "spanFilters": {
-			"criticalPathOnly": false,
-			"matchesOnly": false,
-			"serviceNameOperator": "=",
-			"spanNameOperator": "="
-		  }
-		},
-		"pluginVersion": "12.3.1",
-		"targets": [
-		  {
-			"limit": 20,
-			"query": "{ resource.service.name=\"moq-relay\" && span.connection_id=~\".*${connection_id:pipe}.*\" }",
-			"queryType": "traceqlSearch",
-			"refId": "A"
-		  }
-		],
-		"title": "Search Relay Traces by Connection ID",
-		"type": "traces"
-	  },
-	  {
-		"collapsed": false,
-		"gridPos": {
-		  "h": 1,
-		  "w": 24,
-		  "x": 0,
-		  "y": 62
-		},
-		"id": 60,
-		"panels": [],
-		"title": "Relay Effectiveness",
-		"type": "row"
-	  },
-	  {
-		"datasource": {
-		  "type": "prometheus",
-		  "uid": "prometheus"
-		},
-		"description": "Application payload bitrate: output vs input (excludes retransmissions)",
-		"fieldConfig": {
-		  "defaults": {
-			"custom": {
-			  "drawStyle": "line",
-			  "fillOpacity": 20,
-			  "lineInterpolation": "smooth"
+		{
+			"datasource": {
+				"type": "prometheus",
+				"uid": "prometheus"
 			},
-			"unit": "Mbps"
-		  },
-		  "overrides": []
-		},
-		"gridPos": {
-		  "h": 8,
-		  "w": 12,
-		  "x": 0,
-		  "y": 63
-		},
-		"id": 61,
-		"options": {
-		  "legend": {
-			"calcs": [],
-			"displayMode": "list",
-			"placement": "bottom",
-			"showLegend": true
-		  },
-		  "tooltip": {
-			"hideZeros": false,
-			"mode": "single",
-			"sort": "none"
-		  }
-		},
-		"pluginVersion": "12.3.1",
-		"targets": [
-		  {
-			"expr": "sum(rate(moq_relay_app_bytes_sent_total[1m])) * 8 / 1000000",
-			"legendFormat": "output Mbps",
-			"refId": "A"
-		  },
-		  {
-			"expr": "sum(rate(moq_relay_app_bytes_received_total[1m])) * 8 / 1000000",
-			"legendFormat": "input Mbps",
-			"refId": "B"
-		  }
-		],
-		"title": "Relay Bitrate (App-level)",
-		"type": "timeseries"
-	  },
-	  {
-		"datasource": {
-		  "type": "prometheus",
-		  "uid": "prometheus"
-		},
-		"description": "Application-level relay amplification ratio: output_bitrate / input_bitrate",
-		"fieldConfig": {
-		  "defaults": {
-			"color": {
-			  "mode": "thresholds"
+			"description": "Frames successfully decoded per second",
+			"fieldConfig": {
+				"defaults": {
+					"color": {
+						"mode": "palette-classic"
+					},
+					"custom": {
+						"axisBorderShow": false,
+						"axisCenteredZero": false,
+						"axisColorMode": "text",
+						"axisLabel": "",
+						"axisPlacement": "auto",
+						"barAlignment": 0,
+						"barWidthFactor": 0.6,
+						"drawStyle": "line",
+						"fillOpacity": 20,
+						"gradientMode": "none",
+						"hideFrom": {
+							"legend": false,
+							"tooltip": false,
+							"viz": false
+						},
+						"insertNulls": false,
+						"lineInterpolation": "linear",
+						"lineWidth": 1,
+						"pointSize": 5,
+						"scaleDistribution": {
+							"type": "linear"
+						},
+						"showPoints": "auto",
+						"showValues": false,
+						"spanNulls": false,
+						"stacking": {
+							"group": "A",
+							"mode": "none"
+						},
+						"thresholdsStyle": {
+							"mode": "off"
+						}
+					},
+					"mappings": [],
+					"thresholds": {
+						"mode": "absolute",
+						"steps": [
+							{
+								"color": "green",
+								"value": 0
+							},
+							{
+								"color": "red",
+								"value": 80
+							}
+						]
+					},
+					"unit": "fps"
+				},
+				"overrides": []
 			},
-			"decimals": 2,
-			"mappings": [],
-			"thresholds": {
-			  "mode": "absolute",
-			  "steps": [
+			"gridPos": {
+				"h": 8,
+				"w": 8,
+				"x": 0,
+				"y": 13
+			},
+			"id": 14,
+			"options": {
+				"legend": {
+					"calcs": [],
+					"displayMode": "list",
+					"placement": "bottom",
+					"showLegend": true
+				},
+				"tooltip": {
+					"hideZeros": false,
+					"mode": "single",
+					"sort": "none"
+				}
+			},
+			"pluginVersion": "12.3.1",
+			"targets": [
 				{
-				  "color": "yellow",
-				  "value": 0
+					"expr": "sum(rate(moq_client_frames_decoded_total[1m]))",
+					"legendFormat": "frames/s",
+					"refId": "A"
+				}
+			],
+			"title": "Frames Decoded Rate",
+			"type": "timeseries"
+		},
+		{
+			"datasource": {
+				"type": "prometheus",
+				"uid": "prometheus"
+			},
+			"description": "Data starvation events per minute",
+			"fieldConfig": {
+				"defaults": {
+					"color": {
+						"mode": "thresholds"
+					},
+					"custom": {
+						"axisBorderShow": false,
+						"axisCenteredZero": false,
+						"axisColorMode": "text",
+						"axisLabel": "",
+						"axisPlacement": "auto",
+						"barAlignment": 0,
+						"barWidthFactor": 0.6,
+						"drawStyle": "line",
+						"fillOpacity": 20,
+						"gradientMode": "none",
+						"hideFrom": {
+							"legend": false,
+							"tooltip": false,
+							"viz": false
+						},
+						"insertNulls": false,
+						"lineInterpolation": "linear",
+						"lineWidth": 1,
+						"pointSize": 5,
+						"scaleDistribution": {
+							"type": "linear"
+						},
+						"showPoints": "auto",
+						"showValues": false,
+						"spanNulls": false,
+						"stacking": {
+							"group": "A",
+							"mode": "none"
+						},
+						"thresholdsStyle": {
+							"mode": "off"
+						}
+					},
+					"mappings": [],
+					"thresholds": {
+						"mode": "absolute",
+						"steps": [
+							{
+								"color": "green",
+								"value": 0
+							},
+							{
+								"color": "yellow",
+								"value": 1
+							},
+							{
+								"color": "red",
+								"value": 5
+							}
+						]
+					},
+					"unit": "short"
+				},
+				"overrides": []
+			},
+			"gridPos": {
+				"h": 8,
+				"w": 8,
+				"x": 8,
+				"y": 13
+			},
+			"id": 15,
+			"options": {
+				"legend": {
+					"calcs": [],
+					"displayMode": "list",
+					"placement": "bottom",
+					"showLegend": true
+				},
+				"tooltip": {
+					"hideZeros": false,
+					"mode": "single",
+					"sort": "none"
+				}
+			},
+			"pluginVersion": "12.3.1",
+			"targets": [
+				{
+					"expr": "sum(rate(moq_client_rebuffer_count_total[1m])) * 60",
+					"legendFormat": "rebuffers/min",
+					"refId": "A"
+				}
+			],
+			"title": "Rebuffer Events",
+			"type": "timeseries"
+		},
+		{
+			"datasource": {
+				"type": "prometheus",
+				"uid": "prometheus"
+			},
+			"description": "Track/quality changes per minute",
+			"fieldConfig": {
+				"defaults": {
+					"color": {
+						"mode": "palette-classic"
+					},
+					"custom": {
+						"axisBorderShow": false,
+						"axisCenteredZero": false,
+						"axisColorMode": "text",
+						"axisLabel": "",
+						"axisPlacement": "auto",
+						"barAlignment": 0,
+						"barWidthFactor": 0.6,
+						"drawStyle": "line",
+						"fillOpacity": 20,
+						"gradientMode": "none",
+						"hideFrom": {
+							"legend": false,
+							"tooltip": false,
+							"viz": false
+						},
+						"insertNulls": false,
+						"lineInterpolation": "linear",
+						"lineWidth": 1,
+						"pointSize": 5,
+						"scaleDistribution": {
+							"type": "linear"
+						},
+						"showPoints": "auto",
+						"showValues": false,
+						"spanNulls": false,
+						"stacking": {
+							"group": "A",
+							"mode": "none"
+						},
+						"thresholdsStyle": {
+							"mode": "off"
+						}
+					},
+					"mappings": [],
+					"thresholds": {
+						"mode": "absolute",
+						"steps": [
+							{
+								"color": "green",
+								"value": 0
+							},
+							{
+								"color": "red",
+								"value": 80
+							}
+						]
+					},
+					"unit": "short"
+				},
+				"overrides": []
+			},
+			"gridPos": {
+				"h": 8,
+				"w": 8,
+				"x": 16,
+				"y": 13
+			},
+			"id": 16,
+			"options": {
+				"legend": {
+					"calcs": [],
+					"displayMode": "list",
+					"placement": "bottom",
+					"showLegend": true
+				},
+				"tooltip": {
+					"hideZeros": false,
+					"mode": "single",
+					"sort": "none"
+				}
+			},
+			"pluginVersion": "12.3.1",
+			"targets": [
+				{
+					"expr": "sum(rate(moq_client_quality_switches_total[1m])) * 60",
+					"legendFormat": "switches/min",
+					"refId": "A"
+				}
+			],
+			"title": "Quality Switches",
+			"type": "timeseries"
+		},
+		{
+			"datasource": {
+				"type": "prometheus",
+				"uid": "prometheus"
+			},
+			"description": "Time between keyframes (GOP duration)",
+			"fieldConfig": {
+				"defaults": {
+					"color": {
+						"mode": "palette-classic"
+					},
+					"custom": {
+						"axisBorderShow": false,
+						"axisCenteredZero": false,
+						"axisColorMode": "text",
+						"axisLabel": "",
+						"axisPlacement": "auto",
+						"barAlignment": 0,
+						"barWidthFactor": 0.6,
+						"drawStyle": "line",
+						"fillOpacity": 10,
+						"gradientMode": "none",
+						"hideFrom": {
+							"legend": false,
+							"tooltip": false,
+							"viz": false
+						},
+						"insertNulls": false,
+						"lineInterpolation": "smooth",
+						"lineWidth": 1,
+						"pointSize": 5,
+						"scaleDistribution": {
+							"type": "linear"
+						},
+						"showPoints": "auto",
+						"showValues": false,
+						"spanNulls": false,
+						"stacking": {
+							"group": "A",
+							"mode": "none"
+						},
+						"thresholdsStyle": {
+							"mode": "off"
+						}
+					},
+					"mappings": [],
+					"thresholds": {
+						"mode": "absolute",
+						"steps": [
+							{
+								"color": "green",
+								"value": 0
+							},
+							{
+								"color": "red",
+								"value": 80
+							}
+						]
+					},
+					"unit": "s"
+				},
+				"overrides": []
+			},
+			"gridPos": {
+				"h": 8,
+				"w": 12,
+				"x": 0,
+				"y": 21
+			},
+			"id": 17,
+			"options": {
+				"legend": {
+					"calcs": [],
+					"displayMode": "list",
+					"placement": "bottom",
+					"showLegend": true
+				},
+				"tooltip": {
+					"hideZeros": false,
+					"mode": "single",
+					"sort": "none"
+				}
+			},
+			"pluginVersion": "12.3.1",
+			"targets": [
+				{
+					"expr": "histogram_quantile(0.5, sum(rate(moq_client_keyframe_interval_seconds_bucket[5m])) by (le))",
+					"legendFormat": "p50",
+					"refId": "A"
 				},
 				{
-				  "color": "green",
-				  "value": 1
+					"expr": "histogram_quantile(0.95, sum(rate(moq_client_keyframe_interval_seconds_bucket[5m])) by (le))",
+					"legendFormat": "p95",
+					"refId": "B"
 				}
-			  ]
-			},
-			"unit": "none"
-		  },
-		  "overrides": []
-		},
-		"gridPos": {
-		  "h": 8,
-		  "w": 6,
-		  "x": 12,
-		  "y": 63
-		},
-		"id": 62,
-		"options": {
-		  "colorMode": "value",
-		  "graphMode": "area",
-		  "justifyMode": "auto",
-		  "orientation": "auto",
-		  "percentChangeColorMode": "standard",
-		  "reduceOptions": {
-			"calcs": [
-			  "lastNotNull"
 			],
-			"fields": "",
-			"values": false
-		  },
-		  "showPercentChange": false,
-		  "textMode": "auto",
-		  "wideLayout": true
+			"title": "Keyframe Interval Distribution",
+			"type": "timeseries"
 		},
-		"pluginVersion": "12.3.1",
-		"targets": [
-		  {
-			"expr": "sum(rate(moq_relay_app_bytes_sent_total[1m])) / clamp_min(sum(rate(moq_relay_app_bytes_received_total[1m])), 1)",
-			"refId": "A"
-		  }
-		],
-		"title": "Amplification (Output/Input)",
-		"type": "stat"
-	  },
-	  {
-		"datasource": {
-		  "type": "prometheus",
-		  "uid": "prometheus"
-		},
-		"fieldConfig": {
-		  "defaults": {
-			"custom": {
-			  "drawStyle": "line",
-			  "fillOpacity": 10,
-			  "lineInterpolation": "smooth"
+		{
+			"datasource": {
+				"type": "prometheus",
+				"uid": "prometheus"
 			},
-			"decimals": 2,
-			"unit": "none"
-		  },
-		  "overrides": []
+			"description": "Average buffer length per codec",
+			"fieldConfig": {
+				"defaults": {
+					"color": {
+						"mode": "palette-classic"
+					},
+					"custom": {
+						"axisBorderShow": false,
+						"axisCenteredZero": false,
+						"axisColorMode": "text",
+						"axisLabel": "",
+						"axisPlacement": "auto",
+						"barAlignment": 0,
+						"barWidthFactor": 0.6,
+						"drawStyle": "line",
+						"fillOpacity": 10,
+						"gradientMode": "none",
+						"hideFrom": {
+							"legend": false,
+							"tooltip": false,
+							"viz": false
+						},
+						"insertNulls": false,
+						"lineInterpolation": "linear",
+						"lineWidth": 1,
+						"pointSize": 5,
+						"scaleDistribution": {
+							"type": "linear"
+						},
+						"showPoints": "auto",
+						"showValues": false,
+						"spanNulls": false,
+						"stacking": {
+							"group": "A",
+							"mode": "none"
+						},
+						"thresholdsStyle": {
+							"mode": "off"
+						}
+					},
+					"mappings": [],
+					"thresholds": {
+						"mode": "absolute",
+						"steps": [
+							{
+								"color": "green",
+								"value": 0
+							},
+							{
+								"color": "red",
+								"value": 80
+							}
+						]
+					},
+					"unit": "s"
+				},
+				"overrides": []
+			},
+			"gridPos": {
+				"h": 8,
+				"w": 12,
+				"x": 12,
+				"y": 21
+			},
+			"id": 18,
+			"options": {
+				"legend": {
+					"calcs": [],
+					"displayMode": "list",
+					"placement": "bottom",
+					"showLegend": true
+				},
+				"tooltip": {
+					"hideZeros": false,
+					"mode": "single",
+					"sort": "none"
+				}
+			},
+			"pluginVersion": "12.3.1",
+			"targets": [
+				{
+					"expr": "sum by (codec) (rate(moq_client_buffer_length_seconds_sum[5m])) / sum by (codec) (rate(moq_client_buffer_length_seconds_count[5m]))",
+					"legendFormat": "{{codec}}",
+					"refId": "A"
+				}
+			],
+			"title": "Avg Buffer by Codec",
+			"type": "timeseries"
 		},
-		"gridPos": {
-		  "h": 8,
-		  "w": 6,
-		  "x": 18,
-		  "y": 63
+		{
+			"collapsed": false,
+			"gridPos": {
+				"h": 1,
+				"w": 24,
+				"x": 0,
+				"y": 29
+			},
+			"id": 20,
+			"panels": [],
+			"title": "Relay Performance",
+			"type": "row"
 		},
-		"id": 63,
-		"options": {
-		  "legend": {
-			"calcs": [],
-			"displayMode": "list",
-			"placement": "bottom",
-			"showLegend": true
-		  },
-		  "tooltip": {
-			"hideZeros": false,
-			"mode": "single",
-			"sort": "none"
-		  }
+		{
+			"datasource": {
+				"type": "prometheus",
+				"uid": "prometheus"
+			},
+			"fieldConfig": {
+				"defaults": {
+					"color": {
+						"mode": "palette-classic"
+					},
+					"custom": {
+						"axisBorderShow": false,
+						"axisCenteredZero": false,
+						"axisColorMode": "text",
+						"axisLabel": "",
+						"axisPlacement": "auto",
+						"barAlignment": 0,
+						"barWidthFactor": 0.6,
+						"drawStyle": "line",
+						"fillOpacity": 20,
+						"gradientMode": "none",
+						"hideFrom": {
+							"legend": false,
+							"tooltip": false,
+							"viz": false
+						},
+						"insertNulls": false,
+						"lineInterpolation": "smooth",
+						"lineWidth": 1,
+						"pointSize": 5,
+						"scaleDistribution": {
+							"type": "linear"
+						},
+						"showPoints": "auto",
+						"showValues": false,
+						"spanNulls": false,
+						"stacking": {
+							"group": "A",
+							"mode": "none"
+						},
+						"thresholdsStyle": {
+							"mode": "off"
+						}
+					},
+					"mappings": [],
+					"thresholds": {
+						"mode": "absolute",
+						"steps": [
+							{
+								"color": "green",
+								"value": 0
+							},
+							{
+								"color": "red",
+								"value": 80
+							}
+						]
+					},
+					"unit": "short"
+				},
+				"overrides": []
+			},
+			"gridPos": {
+				"h": 8,
+				"w": 12,
+				"x": 0,
+				"y": 30
+			},
+			"id": 21,
+			"options": {
+				"legend": {
+					"calcs": [],
+					"displayMode": "list",
+					"placement": "bottom",
+					"showLegend": true
+				},
+				"tooltip": {
+					"hideZeros": false,
+					"mode": "single",
+					"sort": "none"
+				}
+			},
+			"pluginVersion": "12.3.1",
+			"targets": [
+				{
+					"expr": "sum(moq_relay_active_subscribers)",
+					"legendFormat": "subscribers",
+					"refId": "A"
+				},
+				{
+					"expr": "sum(moq_relay_active_streams)",
+					"legendFormat": "streams",
+					"refId": "B"
+				},
+				{
+					"expr": "sum(moq_relay_active_connections)",
+					"legendFormat": "connections",
+					"refId": "C"
+				}
+			],
+			"title": "Viewers & Streams Over Time",
+			"type": "timeseries"
 		},
-		"pluginVersion": "12.3.1",
-		"targets": [
-		  {
-			"expr": "sum(rate(moq_relay_app_bytes_sent_total[1m])) / clamp_min(sum(rate(moq_relay_app_bytes_received_total[1m])), 1)",
-			"legendFormat": "amp",
-			"refId": "A"
-		  }
-		],
-		"title": "Amplification Over Time",
-		"type": "timeseries"
-	  }
+		{
+			"datasource": {
+				"type": "prometheus",
+				"uid": "prometheus"
+			},
+			"fieldConfig": {
+				"defaults": {
+					"color": {
+						"mode": "palette-classic"
+					},
+					"custom": {
+						"axisBorderShow": false,
+						"axisCenteredZero": false,
+						"axisColorMode": "text",
+						"axisLabel": "",
+						"axisPlacement": "auto",
+						"barAlignment": 0,
+						"barWidthFactor": 0.6,
+						"drawStyle": "line",
+						"fillOpacity": 30,
+						"gradientMode": "none",
+						"hideFrom": {
+							"legend": false,
+							"tooltip": false,
+							"viz": false
+						},
+						"insertNulls": false,
+						"lineInterpolation": "linear",
+						"lineWidth": 1,
+						"pointSize": 5,
+						"scaleDistribution": {
+							"type": "linear"
+						},
+						"showPoints": "auto",
+						"showValues": false,
+						"spanNulls": false,
+						"stacking": {
+							"group": "A",
+							"mode": "none"
+						},
+						"thresholdsStyle": {
+							"mode": "off"
+						}
+					},
+					"mappings": [],
+					"thresholds": {
+						"mode": "absolute",
+						"steps": [
+							{
+								"color": "green",
+								"value": 0
+							},
+							{
+								"color": "red",
+								"value": 80
+							}
+						]
+					},
+					"unit": "short"
+				},
+				"overrides": []
+			},
+			"gridPos": {
+				"h": 8,
+				"w": 12,
+				"x": 12,
+				"y": 30
+			},
+			"id": 22,
+			"options": {
+				"legend": {
+					"calcs": [],
+					"displayMode": "list",
+					"placement": "bottom",
+					"showLegend": true
+				},
+				"tooltip": {
+					"hideZeros": false,
+					"mode": "single",
+					"sort": "none"
+				}
+			},
+			"pluginVersion": "12.3.1",
+			"targets": [
+				{
+					"expr": "sum(rate(moq_relay_connections_total[1m])) * 60",
+					"legendFormat": "relay connections/min",
+					"refId": "A"
+				},
+				{
+					"expr": "sum(rate(moq_client_connections_total[1m])) * 60",
+					"legendFormat": "client connections/min",
+					"refId": "B"
+				}
+			],
+			"title": "Connection Rate Over Time",
+			"type": "timeseries"
+		},
+		{
+			"datasource": {
+				"type": "prometheus",
+				"uid": "prometheus"
+			},
+			"description": "Effective fanout (derived periodically); not per-group attribution",
+			"fieldConfig": {
+				"defaults": {
+					"color": {
+						"mode": "palette-classic"
+					},
+					"custom": {
+						"axisBorderShow": false,
+						"axisCenteredZero": false,
+						"axisColorMode": "text",
+						"axisLabel": "",
+						"axisPlacement": "auto",
+						"barAlignment": 0,
+						"barWidthFactor": 0.6,
+						"drawStyle": "line",
+						"fillOpacity": 10,
+						"gradientMode": "none",
+						"hideFrom": {
+							"legend": false,
+							"tooltip": false,
+							"viz": false
+						},
+						"insertNulls": false,
+						"lineInterpolation": "linear",
+						"lineWidth": 1,
+						"pointSize": 5,
+						"scaleDistribution": {
+							"type": "linear"
+						},
+						"showPoints": "auto",
+						"showValues": false,
+						"spanNulls": false,
+						"stacking": {
+							"group": "A",
+							"mode": "none"
+						},
+						"thresholdsStyle": {
+							"mode": "off"
+						}
+					},
+					"mappings": [],
+					"thresholds": {
+						"mode": "absolute",
+						"steps": [
+							{
+								"color": "green",
+								"value": 0
+							},
+							{
+								"color": "red",
+								"value": 80
+							}
+						]
+					},
+					"unit": "short"
+				},
+				"overrides": []
+			},
+			"gridPos": {
+				"h": 8,
+				"w": 12,
+				"x": 0,
+				"y": 38
+			},
+			"id": 23,
+			"options": {
+				"legend": {
+					"calcs": [],
+					"displayMode": "list",
+					"placement": "bottom",
+					"showLegend": true
+				},
+				"tooltip": {
+					"hideZeros": false,
+					"mode": "single",
+					"sort": "none"
+				}
+			},
+			"pluginVersion": "12.3.1",
+			"targets": [
+				{
+					"editorMode": "code",
+					"expr": "histogram_quantile(0.5, sum(rate(moq_relay_fanout_bucket[5m])) by (le))",
+					"legendFormat": "p50 fanout",
+					"range": true,
+					"refId": "A"
+				},
+				{
+					"expr": "histogram_quantile(0.95, sum(rate(moq_relay_fanout_bucket[5m])) by (le))",
+					"legendFormat": "p95 fanout",
+					"refId": "B"
+				},
+				{
+					"editorMode": "code",
+					"expr": "sum(rate(moq_relay_fanout_sum[5m])) / sum(rate(moq_relay_fanout_count[5m]))",
+					"legendFormat": "avg fanout",
+					"range": true,
+					"refId": "C"
+				}
+			],
+			"title": "Fanout Distribution",
+			"type": "timeseries"
+		},
+		{
+			"datasource": {
+				"type": "prometheus",
+				"uid": "prometheus"
+			},
+			"description": "Total fanout ratio: subscribers / streams",
+			"fieldConfig": {
+				"defaults": {
+					"color": {
+						"mode": "thresholds"
+					},
+					"decimals": 1,
+					"displayName": "subscribers/stream",
+					"mappings": [],
+					"thresholds": {
+						"mode": "absolute",
+						"steps": [
+							{
+								"color": "yellow",
+								"value": 0
+							},
+							{
+								"color": "green",
+								"value": 2
+							}
+						]
+					},
+					"unit": "short"
+				},
+				"overrides": []
+			},
+			"gridPos": {
+				"h": 8,
+				"w": 6,
+				"x": 12,
+				"y": 38
+			},
+			"id": 24,
+			"options": {
+				"colorMode": "value",
+				"graphMode": "area",
+				"justifyMode": "auto",
+				"orientation": "auto",
+				"percentChangeColorMode": "standard",
+				"reduceOptions": {
+					"calcs": ["lastNotNull"],
+					"fields": "",
+					"values": false
+				},
+				"showPercentChange": false,
+				"textMode": "auto",
+				"wideLayout": true
+			},
+			"pluginVersion": "12.3.1",
+			"targets": [
+				{
+					"expr": "sum(moq_relay_active_subscribers) / sum(moq_relay_active_streams) or vector(0)",
+					"refId": "A"
+				}
+			],
+			"title": "Fanout Efficiency",
+			"type": "stat"
+		},
+		{
+			"datasource": {
+				"type": "prometheus",
+				"uid": "prometheus"
+			},
+			"description": "Fanout histogram summary",
+			"fieldConfig": {
+				"defaults": {
+					"displayName": "fanout samples (5m)",
+					"mappings": [],
+					"thresholds": {
+						"mode": "absolute",
+						"steps": [
+							{
+								"color": "green",
+								"value": 0
+							},
+							{
+								"color": "red",
+								"value": 80
+							}
+						]
+					},
+					"unit": "short"
+				},
+				"overrides": []
+			},
+			"gridPos": {
+				"h": 8,
+				"w": 6,
+				"x": 18,
+				"y": 38
+			},
+			"id": 25,
+			"options": {
+				"colorMode": "value",
+				"graphMode": "area",
+				"justifyMode": "auto",
+				"orientation": "auto",
+				"percentChangeColorMode": "standard",
+				"reduceOptions": {
+					"calcs": ["lastNotNull"],
+					"fields": "",
+					"values": false
+				},
+				"showPercentChange": false,
+				"textMode": "auto",
+				"wideLayout": true
+			},
+			"pluginVersion": "12.3.1",
+			"targets": [
+				{
+					"expr": "sum(increase(moq_relay_fanout_count[5m])) or vector(0)",
+					"refId": "A"
+				}
+			],
+			"title": "Fanout Stats",
+			"type": "stat"
+		},
+		{
+			"collapsed": false,
+			"gridPos": {
+				"h": 1,
+				"w": 24,
+				"x": 0,
+				"y": 46
+			},
+			"id": 40,
+			"panels": [],
+			"title": "SLO Status",
+			"type": "row"
+		},
+		{
+			"datasource": {
+				"type": "prometheus",
+				"uid": "prometheus"
+			},
+			"description": "Target: < 500ms",
+			"fieldConfig": {
+				"defaults": {
+					"color": {
+						"mode": "thresholds"
+					},
+					"decimals": 3,
+					"mappings": [],
+					"thresholds": {
+						"mode": "absolute",
+						"steps": [
+							{
+								"color": "green",
+								"value": 0
+							},
+							{
+								"color": "yellow",
+								"value": 0.5
+							},
+							{
+								"color": "red",
+								"value": 2
+							}
+						]
+					},
+					"unit": "s"
+				},
+				"overrides": []
+			},
+			"gridPos": {
+				"h": 4,
+				"w": 8,
+				"x": 0,
+				"y": 47
+			},
+			"id": 41,
+			"options": {
+				"colorMode": "value",
+				"graphMode": "area",
+				"justifyMode": "auto",
+				"orientation": "auto",
+				"percentChangeColorMode": "standard",
+				"reduceOptions": {
+					"calcs": ["lastNotNull"],
+					"fields": "",
+					"values": false
+				},
+				"showPercentChange": false,
+				"textMode": "auto",
+				"wideLayout": true
+			},
+			"pluginVersion": "12.3.1",
+			"targets": [
+				{
+					"expr": "histogram_quantile(0.95, sum(rate(moq_client_startup_time_seconds_bucket[5m])) by (le)) or vector(0)",
+					"refId": "A"
+				}
+			],
+			"title": "Time-to-First-Frame p95",
+			"type": "stat"
+		},
+		{
+			"datasource": {
+				"type": "prometheus",
+				"uid": "prometheus"
+			},
+			"description": "Target: < 50ms",
+			"fieldConfig": {
+				"defaults": {
+					"color": {
+						"mode": "thresholds"
+					},
+					"decimals": 3,
+					"mappings": [],
+					"thresholds": {
+						"mode": "absolute",
+						"steps": [
+							{
+								"color": "green",
+								"value": 0
+							},
+							{
+								"color": "yellow",
+								"value": 0.05
+							},
+							{
+								"color": "red",
+								"value": 0.1
+							}
+						]
+					},
+					"unit": "s"
+				},
+				"overrides": []
+			},
+			"gridPos": {
+				"h": 4,
+				"w": 8,
+				"x": 8,
+				"y": 47
+			},
+			"id": 42,
+			"options": {
+				"colorMode": "value",
+				"graphMode": "area",
+				"justifyMode": "auto",
+				"orientation": "auto",
+				"percentChangeColorMode": "standard",
+				"reduceOptions": {
+					"calcs": ["lastNotNull"],
+					"fields": "",
+					"values": false
+				},
+				"showPercentChange": false,
+				"textMode": "auto",
+				"wideLayout": true
+			},
+			"pluginVersion": "12.3.1",
+			"targets": [
+				{
+					"expr": "histogram_quantile(0.95, sum(rate(moq_client_decode_time_seconds_bucket[5m])) by (le)) or vector(0)",
+					"refId": "A"
+				}
+			],
+			"title": "Decode Time p95",
+			"type": "stat"
+		},
+		{
+			"datasource": {
+				"type": "prometheus",
+				"uid": "prometheus"
+			},
+			"description": "Target: < 1 per minute",
+			"fieldConfig": {
+				"defaults": {
+					"color": {
+						"mode": "thresholds"
+					},
+					"decimals": 2,
+					"displayName": "rebuffers/min",
+					"mappings": [],
+					"thresholds": {
+						"mode": "absolute",
+						"steps": [
+							{
+								"color": "green",
+								"value": 0
+							},
+							{
+								"color": "yellow",
+								"value": 1
+							},
+							{
+								"color": "red",
+								"value": 5
+							}
+						]
+					},
+					"unit": "short"
+				},
+				"overrides": []
+			},
+			"gridPos": {
+				"h": 4,
+				"w": 8,
+				"x": 16,
+				"y": 47
+			},
+			"id": 43,
+			"options": {
+				"colorMode": "value",
+				"graphMode": "area",
+				"justifyMode": "auto",
+				"orientation": "auto",
+				"percentChangeColorMode": "standard",
+				"reduceOptions": {
+					"calcs": ["lastNotNull"],
+					"fields": "",
+					"values": false
+				},
+				"showPercentChange": false,
+				"textMode": "auto",
+				"wideLayout": true
+			},
+			"pluginVersion": "12.3.1",
+			"targets": [
+				{
+					"expr": "sum(rate(moq_client_rebuffer_count_total[5m])) * 60 or vector(0)",
+					"refId": "A"
+				}
+			],
+			"title": "Rebuffer Rate",
+			"type": "stat"
+		},
+		{
+			"collapsed": false,
+			"gridPos": {
+				"h": 1,
+				"w": 24,
+				"x": 0,
+				"y": 51
+			},
+			"id": 50,
+			"panels": [],
+			"title": "Trace Search (Relay)",
+			"type": "row"
+		},
+		{
+			"datasource": {
+				"type": "tempo",
+				"uid": "tempo"
+			},
+			"description": "Enter a connection_id (e.g., conn-123) in the variable above to search relay traces in Tempo",
+			"fieldConfig": {
+				"defaults": {},
+				"overrides": []
+			},
+			"gridPos": {
+				"h": 10,
+				"w": 24,
+				"x": 0,
+				"y": 52
+			},
+			"id": 51,
+			"options": {
+				"spanFilters": {
+					"criticalPathOnly": false,
+					"matchesOnly": false,
+					"serviceNameOperator": "=",
+					"spanNameOperator": "="
+				}
+			},
+			"pluginVersion": "12.3.1",
+			"targets": [
+				{
+					"limit": 20,
+					"query": "{ resource.service.name=\"moq-relay\" && span.connection_id=~\".*${connection_id:pipe}.*\" }",
+					"queryType": "traceqlSearch",
+					"refId": "A"
+				}
+			],
+			"title": "Search Relay Traces by Connection ID",
+			"type": "traces"
+		},
+		{
+			"collapsed": false,
+			"gridPos": {
+				"h": 1,
+				"w": 24,
+				"x": 0,
+				"y": 62
+			},
+			"id": 60,
+			"panels": [],
+			"title": "Relay Effectiveness",
+			"type": "row"
+		},
+		{
+			"datasource": {
+				"type": "prometheus",
+				"uid": "prometheus"
+			},
+			"description": "Application payload bitrate: output vs input (excludes retransmissions)",
+			"fieldConfig": {
+				"defaults": {
+					"custom": {
+						"drawStyle": "line",
+						"fillOpacity": 20,
+						"lineInterpolation": "smooth"
+					},
+					"unit": "Mbps"
+				},
+				"overrides": []
+			},
+			"gridPos": {
+				"h": 8,
+				"w": 12,
+				"x": 0,
+				"y": 63
+			},
+			"id": 61,
+			"options": {
+				"legend": {
+					"calcs": [],
+					"displayMode": "list",
+					"placement": "bottom",
+					"showLegend": true
+				},
+				"tooltip": {
+					"hideZeros": false,
+					"mode": "single",
+					"sort": "none"
+				}
+			},
+			"pluginVersion": "12.3.1",
+			"targets": [
+				{
+					"expr": "sum(rate(moq_relay_app_bytes_sent_total[1m])) * 8 / 1000000",
+					"legendFormat": "output Mbps",
+					"refId": "A"
+				},
+				{
+					"expr": "sum(rate(moq_relay_app_bytes_received_total[1m])) * 8 / 1000000",
+					"legendFormat": "input Mbps",
+					"refId": "B"
+				}
+			],
+			"title": "Relay Bitrate (App-level)",
+			"type": "timeseries"
+		},
+		{
+			"datasource": {
+				"type": "prometheus",
+				"uid": "prometheus"
+			},
+			"description": "Application-level relay amplification ratio: output_bitrate / input_bitrate",
+			"fieldConfig": {
+				"defaults": {
+					"color": {
+						"mode": "thresholds"
+					},
+					"decimals": 2,
+					"mappings": [],
+					"thresholds": {
+						"mode": "absolute",
+						"steps": [
+							{
+								"color": "yellow",
+								"value": 0
+							},
+							{
+								"color": "green",
+								"value": 1
+							}
+						]
+					},
+					"unit": "none"
+				},
+				"overrides": []
+			},
+			"gridPos": {
+				"h": 8,
+				"w": 6,
+				"x": 12,
+				"y": 63
+			},
+			"id": 62,
+			"options": {
+				"colorMode": "value",
+				"graphMode": "area",
+				"justifyMode": "auto",
+				"orientation": "auto",
+				"percentChangeColorMode": "standard",
+				"reduceOptions": {
+					"calcs": ["lastNotNull"],
+					"fields": "",
+					"values": false
+				},
+				"showPercentChange": false,
+				"textMode": "auto",
+				"wideLayout": true
+			},
+			"pluginVersion": "12.3.1",
+			"targets": [
+				{
+					"expr": "sum(rate(moq_relay_app_bytes_sent_total[1m])) / clamp_min(sum(rate(moq_relay_app_bytes_received_total[1m])), 1)",
+					"refId": "A"
+				}
+			],
+			"title": "Amplification (Output/Input)",
+			"type": "stat"
+		},
+		{
+			"datasource": {
+				"type": "prometheus",
+				"uid": "prometheus"
+			},
+			"fieldConfig": {
+				"defaults": {
+					"custom": {
+						"drawStyle": "line",
+						"fillOpacity": 10,
+						"lineInterpolation": "smooth"
+					},
+					"decimals": 2,
+					"unit": "none"
+				},
+				"overrides": []
+			},
+			"gridPos": {
+				"h": 8,
+				"w": 6,
+				"x": 18,
+				"y": 63
+			},
+			"id": 63,
+			"options": {
+				"legend": {
+					"calcs": [],
+					"displayMode": "list",
+					"placement": "bottom",
+					"showLegend": true
+				},
+				"tooltip": {
+					"hideZeros": false,
+					"mode": "single",
+					"sort": "none"
+				}
+			},
+			"pluginVersion": "12.3.1",
+			"targets": [
+				{
+					"expr": "sum(rate(moq_relay_app_bytes_sent_total[1m])) / clamp_min(sum(rate(moq_relay_app_bytes_received_total[1m])), 1)",
+					"legendFormat": "amp",
+					"refId": "A"
+				}
+			],
+			"title": "Amplification Over Time",
+			"type": "timeseries"
+		}
 	],
 	"preload": false,
 	"refresh": "5s",
 	"schemaVersion": 42,
-	"tags": [
-	  "moq",
-	  "streaming",
-	  "webrtc"
-	],
+	"tags": ["moq", "streaming", "webrtc"],
 	"templating": {
-	  "list": [
-		{
-		  "allValue": ".*",
-		  "current": {
-			"selected": false,
-			"text": "All",
-			"value": "$__all"
-		  },
-		  "datasource": {
-			"type": "prometheus",
-			"uid": "prometheus"
-		  },
-		  "definition": "label_values(moq_client_connections_total{transport=\"websocket\"}, moq_player_session_id)",
-		  "description": "Filter client metrics by per-player session id",
-		  "hide": 0,
-		  "includeAll": true,
-		  "label": "Client Session",
-		  "multi": true,
-		  "name": "client_session",
-		  "options": [],
-		  "query": {
-			"query": "label_values(moq_client_connections_total{transport=\"websocket\"}, moq_player_session_id)",
-			"refId": "StandardVariableQuery"
-		  },
-		  "refresh": 2,
-		  "regex": "",
-		  "skipUrlSync": false,
-		  "sort": 1,
-		  "type": "query"
-		},
-		{
-		  "current": {
-			"text": "",
-			"value": ""
-		  },
-		  "description": "Filter by relay connection ID (for trace search in Tempo)",
-		  "label": "Connection ID",
-		  "name": "connection_id",
-		  "type": "textbox"
-		}
-	  ]
+		"list": [
+			{
+				"allValue": ".*",
+				"current": {
+					"selected": false,
+					"text": "All",
+					"value": "$__all"
+				},
+				"datasource": {
+					"type": "prometheus",
+					"uid": "prometheus"
+				},
+				"definition": "label_values(moq_client_connections_total{transport=\"websocket\"}, moq_player_session_id)",
+				"description": "Filter client metrics by per-player session id",
+				"hide": 0,
+				"includeAll": true,
+				"label": "Client Session",
+				"multi": true,
+				"name": "client_session",
+				"options": [],
+				"query": {
+					"query": "label_values(moq_client_connections_total{transport=\"websocket\"}, moq_player_session_id)",
+					"refId": "StandardVariableQuery"
+				},
+				"refresh": 2,
+				"regex": "",
+				"skipUrlSync": false,
+				"sort": 1,
+				"type": "query"
+			},
+			{
+				"current": {
+					"text": "",
+					"value": ""
+				},
+				"description": "Filter by relay connection ID (for trace search in Tempo)",
+				"label": "Connection ID",
+				"name": "connection_id",
+				"type": "textbox"
+			}
+		]
 	},
 	"time": {
-	  "from": "now-15m",
-	  "to": "now"
+		"from": "now-15m",
+		"to": "now"
 	},
 	"timepicker": {},
 	"timezone": "browser",
 	"title": "MoQ Overview",
 	"uid": "moq-overview",
 	"version": 11
-  }
+}

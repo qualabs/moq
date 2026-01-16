@@ -49,9 +49,6 @@ export interface VideoStats {
 // TODO Maybe we need to detect b-frames and make this dynamic?
 const MIN_SYNC_WAIT_MS = 200 as Time.Milli;
 
-// Minimum time to wait for a frame before counting it as a rebuffer event (ms)
-const REBUFFER_THRESHOLD_MS = 100;
-
 // The maximum number of concurrent b-frames that we support.
 const MAX_BFRAMES = 10;
 
@@ -204,9 +201,6 @@ export class Source {
 		const sub = broadcast.subscribe(name, PRIORITY.video); // TODO use priority from catalog
 		effect.cleanup(() => sub.close());
 
-		// Record quality switch (CMCD-aligned)
-		recordMetric((m) => m.incrementQualitySwitch({ codec: config.codec, track_type: "video" }));
-
 		// Create consumer that reorders groups/frames up to the provided latency.
 		// Container defaults to "legacy" via Zod schema for backward compatibility
 		console.log(`[Video Subscriber] Using container format: ${config.container}`);
@@ -338,31 +332,10 @@ export class Source {
 		});
 
 		effect.spawn(async () => {
-			let lastKeyframeTime: number | undefined;
-			let isFirstFrame = true;
-
 			for (;;) {
-				// Measure how long we wait for the next frame (rebuffer detection)
-				const waitStart = performance.now();
 				const next = await Promise.race([consumer.decode(), effect.cancel]);
-				const waitDuration = performance.now() - waitStart;
 
 				if (!next) break;
-
-				// Detect rebuffer: if we waited too long for data after the first frame
-				if (!isFirstFrame && waitDuration > REBUFFER_THRESHOLD_MS) {
-					recordMetric((m) => m.incrementRebuffer({ codec: config.codec, track_type: "video" }));
-				}
-				isFirstFrame = false;
-
-				// Track keyframe interval
-				if (next.keyframe) {
-					if (lastKeyframeTime !== undefined) {
-						const intervalSeconds = (next.timestamp - lastKeyframeTime) / 1_000_000; // timestamp is in microseconds
-						recordMetric((m) => m.recordKeyframeInterval(intervalSeconds, { codec: config.codec }));
-					}
-					lastKeyframeTime = next.timestamp;
-				}
 
 				const chunk = new EncodedVideoChunk({
 					type: next.keyframe ? "key" : "delta",

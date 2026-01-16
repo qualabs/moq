@@ -5,7 +5,6 @@ import * as Observability from "../observability";
 import * as Audio from "./audio";
 import { Broadcast } from "./broadcast";
 import * as Video from "./video";
-import * as Observability from "../observability";
 
 // TODO remove name; replaced with path
 const OBSERVED = ["url", "name", "path", "paused", "volume", "muted", "reload", "latency"] as const;

@@ -3,17 +3,6 @@ import * as Ietf from "../ietf/index.ts";
 import * as Lite from "../lite/index.ts";
 import { Stream } from "../stream.ts";
 import * as Hex from "../util/hex.ts";
-
-// Connection type tracking for observability
-let connectionTypeCallback: ((type: "webtransport" | "websocket") => void) | undefined;
-
-/**
- * Register a callback to be notified of connection type.
- * Used by observability to track WebTransport vs WebSocket usage.
- */
-export function onConnectionType(callback: (type: "webtransport" | "websocket") => void) {
-	connectionTypeCallback = callback;
-}
 import type { Established } from "./established.ts";
 
 // Connection type tracking for observability

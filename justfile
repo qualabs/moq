@@ -18,11 +18,6 @@ all: dev
 
 # Run the relay, web server, and publish bbb.
 dev:
-	# Start observability stack first (runs in background)
-	echo ">>> Starting observability stack..."
-	cd observability && docker compose up -d
-	cd ..
-
 	# Install any JS dependencies.
 	bun install
 
