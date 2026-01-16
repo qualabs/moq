@@ -1,11 +1,9 @@
-use std::sync::Arc;
-
 use tokio::sync::oneshot;
 
 use crate::{
+	Error, OriginConsumer, OriginProducer,
 	coding::Stream,
 	lite::{SessionInfo, Version},
-	Error, OriginConsumer, OriginProducer, Stats,
 };
 
 use super::{Publisher, Subscriber};
@@ -18,13 +16,11 @@ pub(crate) async fn start<S: web_transport_trait::Session>(
 	publish: Option<OriginConsumer>,
 	// We will consume any remote broadcasts, inserting them into this origin.
 	subscribe: Option<OriginProducer>,
-	// Optional application-level stats sink.
-	stats: Option<Arc<dyn Stats>>,
 	// The version of the protocol to use.
 	version: Version,
 ) -> Result<(), Error> {
-	let publisher = Publisher::new(session.clone(), publish, stats.clone(), version);
-	let subscriber = Subscriber::new(session.clone(), subscribe, stats.clone(), version);
+	let publisher = Publisher::new(session.clone(), publish, version);
+	let subscriber = Subscriber::new(session.clone(), subscribe, version);
 
 	let init = oneshot::channel();
 

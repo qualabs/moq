@@ -1,14 +1,14 @@
 use std::{
-	collections::{hash_map::Entry, HashMap},
-	sync::{atomic, Arc},
+	collections::{HashMap, hash_map::Entry},
+	sync::{Arc, atomic},
 };
 
 use crate::{
+	AsPath, Broadcast, Error, Frame, FrameProducer, Group, GroupProducer, OriginProducer, Path, PathOwned,
+	TrackProducer,
 	coding::{Reader, Stream},
 	lite::{self, Version},
 	model::BroadcastProducer,
-	AsPath, Broadcast, Error, Frame, FrameProducer, Group, GroupProducer, OriginProducer, Path, PathOwned, Stats,
-	TrackProducer,
 };
 
 use tokio::sync::oneshot;
@@ -21,18 +21,16 @@ pub(super) struct Subscriber<S: web_transport_trait::Session> {
 	origin: Option<OriginProducer>,
 	subscribes: Lock<HashMap<u64, TrackProducer>>,
 	next_id: Arc<atomic::AtomicU64>,
-	stats: Option<Arc<dyn Stats>>,
 	version: Version,
 }
 
 impl<S: web_transport_trait::Session> Subscriber<S> {
-	pub fn new(session: S, origin: Option<OriginProducer>, stats: Option<Arc<dyn Stats>>, version: Version) -> Self {
+	pub fn new(session: S, origin: Option<OriginProducer>, version: Version) -> Self {
 		Self {
 			session,
 			origin,
 			subscribes: Default::default(),
 			next_id: Default::default(),
-			stats,
 			version,
 		}
 	}
@@ -310,9 +308,6 @@ impl<S: web_transport_trait::Session> Subscriber<S> {
 				.read(MAX_CHUNK.min(remain as usize))
 				.await?
 				.ok_or(Error::WrongSize)?;
-			if let Some(stats) = &self.stats {
-				stats.add_rx_bytes(chunk.len() as u64);
-			}
 			remain = remain.checked_sub(chunk.len() as u64).ok_or(Error::WrongSize)?;
 			frame.write_chunk(chunk);
 		}

@@ -1,10 +1,10 @@
 import type * as Moq from "@moq/lite";
+import type { Time } from "@moq/lite";
 import { Effect, type Getter, Signal } from "@moq/signals";
 import type * as Catalog from "../../catalog";
 import * as Frame from "../../frame";
 import { recordMetric } from "../../observability";
 import { PRIORITY } from "../../publish/priority";
-import type * as Time from "../../time";
 import * as Hex from "../../util/hex";
 
 export type SourceProps = {
