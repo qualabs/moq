@@ -76,7 +76,7 @@ function setupConnectionTracking() {
 				});
 			}
 		})
-		.catch(() => {});
+    .catch((error) => console.warn("Failed to set up connection tracking for observability:", error));
 }
 
 export class ClientMetrics {
