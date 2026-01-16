@@ -9,6 +9,7 @@ use crate::{
 	coding::Writer,
 	ietf::{self, Control, FetchHeader, FetchType, FilterType, GroupOrder, Location, RequestId, Version},
 	model::GroupConsumer,
+	Stats,
 };
 
 #[derive(Clone)]
@@ -16,6 +17,7 @@ pub(super) struct Publisher<S: web_transport_trait::Session> {
 	session: S,
 	origin: OriginConsumer,
 	control: Control,
+	stats: Option<Arc<dyn Stats>>,
 
 	// Drop in order to cancel the subscribe.
 	subscribes: Lock<HashMap<RequestId, oneshot::Sender<()>>>,
@@ -24,13 +26,20 @@ pub(super) struct Publisher<S: web_transport_trait::Session> {
 }
 
 impl<S: web_transport_trait::Session> Publisher<S> {
-	pub fn new(session: S, origin: Option<OriginConsumer>, control: Control, version: Version) -> Self {
+	pub fn new(
+		session: S,
+		origin: Option<OriginConsumer>,
+		control: Control,
+		stats: Option<Arc<dyn Stats>>,
+		version: Version,
+	) -> Self {
 		// Default to a dummy origin that is immediately closed.
 		let origin = origin.unwrap_or_else(|| Origin::produce().consumer);
 		Self {
 			session,
 			origin,
 			control,
+			stats,
 			subscribes: Default::default(),
 			version,
 		}
@@ -108,10 +117,11 @@ impl<S: web_transport_trait::Session> Publisher<S> {
 		let control = self.control.clone();
 		let request_id = msg.request_id;
 		let subscribes = self.subscribes.clone();
+		let stats = self.stats.clone();
 		let version = self.version;
 
 		web_async::spawn(async move {
-			if let Err(err) = Self::run_track(session, track, request_id, rx, version).await {
+			if let Err(err) = Self::run_track(session, track, request_id, rx, stats, version).await {
 				control
 					.send(ietf::PublishDone {
 						request_id,
@@ -150,6 +160,7 @@ impl<S: web_transport_trait::Session> Publisher<S> {
 		mut track: TrackConsumer,
 		request_id: RequestId,
 		mut cancel: oneshot::Receiver<()>,
+		stats: Option<Arc<dyn Stats>>,
 		version: Version,
 	) -> Result<(), Error> {
 		// TODO use a BTreeMap serve the latest N groups by sequence.
@@ -212,6 +223,7 @@ impl<S: web_transport_trait::Session> Publisher<S> {
 				msg,
 				track.info.priority,
 				group,
+				stats.clone(),
 				version,
 			));
 
@@ -241,6 +253,7 @@ impl<S: web_transport_trait::Session> Publisher<S> {
 		msg: ietf::GroupHeader,
 		priority: u8,
 		mut group: GroupConsumer,
+		stats: Option<Arc<dyn Stats>>,
 		version: Version,
 	) -> Result<(), Error> {
 		// TODO add a way to open in priority order.
@@ -293,7 +306,12 @@ impl<S: web_transport_trait::Session> Publisher<S> {
 					};
 
 					match chunk? {
-						Some(mut chunk) => stream.write_all(&mut chunk).await?,
+						Some(mut chunk) => {
+							if let Some(stats) = &stats {
+								stats.add_tx_bytes(chunk.len() as u64);
+							}
+							stream.write_all(&mut chunk).await?
+						}
 						None => break,
 					}
 				}
