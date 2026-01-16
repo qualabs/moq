@@ -16,6 +16,17 @@ export function onConnectionType(callback: (type: "webtransport" | "websocket") 
 }
 import type { Established } from "./established.ts";
 
+// Connection type tracking for observability
+let connectionTypeCallback: ((type: "webtransport" | "websocket") => void) | undefined;
+
+/**
+ * Register a callback to be notified of connection type.
+ * Used by observability to track WebTransport vs WebSocket usage.
+ */
+export function onConnectionType(callback: (type: "webtransport" | "websocket") => void) {
+	connectionTypeCallback = callback;
+}
+
 export interface WebSocketOptions {
 	// If true (default), enable the WebSocket fallback.
 	enabled?: boolean;

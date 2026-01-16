@@ -1,6 +1,7 @@
 import type { Time } from "@moq/lite";
 import * as Moq from "@moq/lite";
 import { Effect, Signal } from "@moq/signals";
+import * as Observability from "../observability";
 import * as Audio from "./audio";
 import { Broadcast } from "./broadcast";
 import * as Video from "./video";
@@ -95,11 +96,7 @@ export default class HangWatch extends HTMLElement {
 		this.signals.effect((effect) => {
 			const url = effect.get(this.url);
 			if (url) {
-				const tracer = Observability.getTracer();
-				if (tracer) {
-					const span = tracer.startSpan("moq-playback-session");
-					effect.cleanup(() => span.end());
-				}
+				// Metrics-only observability; no tracing spans.
 			}
 		});
 

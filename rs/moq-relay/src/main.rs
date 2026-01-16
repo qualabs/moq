@@ -13,8 +13,6 @@ mod cluster;
 mod config;
 mod connection;
 mod metrics;
-mod observability;
-mod observability_config;
 mod web;
 
 pub use auth::*;
@@ -22,8 +20,6 @@ pub use cluster::*;
 pub use config::*;
 pub use connection::*;
 pub use metrics::*;
-pub use observability::*;
-pub use observability_config::*;
 pub use web::*;
 
 #[tokio::main]

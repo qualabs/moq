@@ -42,7 +42,6 @@ export interface VideoStats {
 	timestamp: number;
 	bytesReceived: number;
 	framesDecoded: number;
-	framesDropped: number;
 }
 
 // Only count it as buffering if we had to sleep for 200ms or more before rendering the next frame.
@@ -246,6 +245,14 @@ export class Source {
 
 		const decoder = new VideoDecoder({
 			output: async (frame: VideoFrame) => {
+				// Count actual decoded frames here (not per encoded chunk).
+				this.#stats.update((current) => ({
+					frameCount: current?.frameCount ?? 0,
+					timestamp: current?.timestamp ?? 0,
+					bytesReceived: current?.bytesReceived ?? 0,
+					framesDecoded: (current?.framesDecoded ?? 0) + 1,
+				}));
+
 				// Insert into a queue so we can perform ordered sleeps.
 				// If this were to block, I believe WritableStream is still ordered.
 				try {
@@ -280,11 +287,6 @@ export class Source {
 
 				// Record buffer length: sleep > 0 means we have data buffered ahead
 				// The sleep time represents how far ahead of playback position we are
-				if (sleep > 0) {
-					const bufferSeconds = sleep / 1000;
-					recordMetric((m) => m.recordBufferLength(bufferSeconds, { codec: config.codec, track_type: "video" }));
-				}
-
 				// Note: Large sleep means we're AHEAD (have buffer), not rebuffering
 				// Rebuffering is detected in the consumer.decode() wait below
 				if (sleep > MIN_SYNC_WAIT_MS) {
@@ -311,9 +313,6 @@ export class Source {
 						effect.set(this.active, name);
 					}
 				}
-
-				// Record frame decoded
-				recordMetric((m) => m.recordFrameDecoded({ codec: config.codec, track_type: "video" }));
 
 				// Record time-to-first-frame on the first rendered frame
 				if (!firstFrameRendered) {
@@ -371,25 +370,14 @@ export class Source {
 					timestamp: next.timestamp,
 				});
 
-				// Measure decode time
-				const decodeStart = performance.now();
 				decoder.decode(chunk);
-				// Note: decode() is async but doesn't return a promise, so we can't accurately measure it
-				// The actual decode time is captured when the frame comes out of the decoder output callback
-				// For now, we record the submission time which includes any queue wait
-				const decodeTime = (performance.now() - decodeStart) / 1000;
-				if (decodeTime > 0.001) {
-					// Only record if > 1ms to avoid noise
-					recordMetric((m) => m.recordDecodeTime(decodeTime, { codec: config.codec, track_type: "video" }));
-				}
 
 				// Track both frame count and bytes received for stats in the UI
 				this.#stats.update((current) => ({
 					frameCount: (current?.frameCount ?? 0) + 1,
 					timestamp: next.timestamp,
 					bytesReceived: (current?.bytesReceived ?? 0) + next.data.byteLength,
-					framesDecoded: (current?.framesDecoded ?? 0) + 1,
-					framesDropped: current?.framesDropped ?? 0,
+					framesDecoded: current?.framesDecoded ?? 0,
 				}));
 			}
 		});

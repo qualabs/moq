@@ -1,8 +1,6 @@
 receivers:
   otlp:
     protocols:
-      grpc:
-        endpoint: 0.0.0.0:4317
       http:
         endpoint: 0.0.0.0:4318
         cors:
@@ -16,49 +14,18 @@ processors:
   batch:
     timeout: 10s
     send_batch_size: 1024
-  # Do NOT overwrite resource identity (e.g. browser metrics use service.name=moq-client).
-  # If you need relay-specific labels, use const_labels in the Prometheus exporter or
-  # insert-only attributes that won't stomp incoming telemetry.
-  resource: {}
 
 exporters:
-  # Debug exporter to see what's being received
-  debug:
-    verbosity: basic
-    sampling_initial: 5
-    sampling_thereafter: 200
-
   prometheus:
     endpoint: 0.0.0.0:8889
-    const_labels:
-      environment: development
-
-  otlp/tempo:
-    endpoint: tempo:4317
-    tls:
-      insecure: true
-
-  otlphttp/loki:
-    endpoint: http://loki:3100/otlp
-    tls:
-      insecure: true
 
 service:
   telemetry:
     logs:
       level: info
   pipelines:
-    traces:
-      receivers: [otlp]
-      processors: [batch]
-      exporters: [otlp/tempo, debug]
-
     metrics:
       receivers: [otlp]
-      processors: [batch, resource]
+      processors: [batch]
       exporters: [prometheus]
 
-    logs:
-      receivers: [otlp]
-      processors: [batch, resource]
-      exporters: [otlphttp/loki]

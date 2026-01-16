@@ -1,3 +1,45 @@
+# Optional observability stack (Grafana + Prometheus + OTel Collector)
+
+This folder is **optional tooling** to help reviewers/operators quickly spin up the minimum infra to view metrics emitted by this PR:
+
+- Relay metrics: served at `http://localhost:4443/metrics`
+- Browser metrics: exported via OTLP/HTTP to `http://localhost:4318/v1/metrics`
+
+## Start
+
+```bash
+cd observability
+docker compose up -d
+```
+
+- **Grafana**: `http://localhost:3050` (anonymous admin enabled)
+- **Prometheus**: `http://localhost:9090`
+
+## Verify data is flowing
+
+### Prometheus targets
+Open Prometheus targets page and confirm both are **UP**:
+
+- `otel-collector` (scrapes `otel-collector:8889`)
+- `moq-relay` (scrapes `host.docker.internal:4443/metrics`)
+
+### Example queries
+In Prometheus or Grafana Explore:
+
+- `moq_relay_active_sessions`
+- `moq_relay_app_bytes_sent_total`
+- `moq_relay_app_bytes_received_total`
+- `moq_client_connections_total`
+- `moq_client_startup_time_seconds_count`
+
+## Linux / WSL2 notes
+
+The Prometheus config scrapes the relay using `host.docker.internal:4443`. The compose file includes:
+
+- `extra_hosts: ["host.docker.internal:host-gateway"]`
+
+If your Docker setup doesn’t support `host-gateway`, edit `observability/prometheus.yml` and replace the target with your host IP.
+
 # MoQ Observability Stack
 
 Real-time monitoring and debugging for Media over QUIC (MoQ) streaming infrastructure.

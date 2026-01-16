@@ -3,30 +3,22 @@ services:
     image: otel/opentelemetry-collector-contrib:latest
     command: ["--config=/etc/otel-collector-config.yaml"]
     volumes:
-      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml
+      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
     ports:
-      - "4317:4317"   # OTLP gRPC receiver
-      - "4318:4318"   # OTLP HTTP receiver
-      - "8889:8889"   # Prometheus metrics exporter
+      - "4318:4318"   # OTLP HTTP (browser)
+      - "8889:8889"   # Prometheus exporter (scraped by Prometheus)
     networks:
       - moq-observability
-    depends_on:
-      - tempo
-      - loki
 
   prometheus:
     image: prom/prometheus:latest
     command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
-      - '--web.console.templates=/usr/share/prometheus/consoles'
-      - '--storage.tsdb.retention.time=15d'
-      - '--web.enable-lifecycle'
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=15d"
+      - "--web.enable-lifecycle"
     volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml
-      - ./recording_rules.yml:/etc/prometheus/recording_rules.yml
-      - ./alerts.yml:/etc/prometheus/alerts.yml
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus-data:/prometheus
     ports:
       - "9090:9090"
@@ -34,27 +26,9 @@ services:
       - moq-observability
     depends_on:
       - otel-collector
-
-  tempo:
-    image: grafana/tempo:latest
-    command: ["-config.file=/etc/tempo.yaml"]
-    volumes:
-      - ./tempo-config.yaml:/etc/tempo.yaml
-      - tempo-data:/var/tempo
-    ports:
-      - "3200:3200"   # Tempo UI (optional, Grafana integrates Tempo)
-    networks:
-      - moq-observability
-
-  loki:
-    image: grafana/loki:latest
-    command: -config.file=/etc/loki/local-config.yaml
-    volumes:
-      - loki-data:/loki
-    ports:
-      - "3100:3100"
-    networks:
-      - moq-observability
+    extra_hosts:
+      # Enables host access on Linux / Docker Engine (including WSL2).
+      - "host.docker.internal:host-gateway"
 
   grafana:
     image: grafana/grafana:latest
@@ -64,46 +38,13 @@ services:
       - GF_AUTH_DISABLE_LOGIN_FORM=false
     volumes:
       - grafana-data:/var/lib/grafana
-      - ./grafana/provisioning:/etc/grafana/provisioning
-      - ./grafana/dashboards:/var/lib/grafana/dashboards
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
     ports:
       - "3050:3000"
     networks:
       - moq-observability
     depends_on:
       - prometheus
-      - tempo
-      - loki
-
-  node-exporter:
-    image: prom/node-exporter:latest
-    command:
-      - '--path.procfs=/host/proc'
-      - '--path.sysfs=/host/sys'
-      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
-    volumes:
-      - /proc:/host/proc:ro
-      - /sys:/host/sys:ro
-      - /:/rootfs:ro
-    ports:
-      - "9100:9100"
-    networks:
-      - moq-observability
-
-  alloy:
-    image: grafana/alloy:latest
-    command:
-      - run
-      - /etc/alloy/config.alloy
-      - --storage.path=/var/lib/alloy/data
-    volumes:
-      - ./alloy-config.alloy:/etc/alloy/config.alloy
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - alloy-data:/var/lib/alloy/data
-    networks:
-      - moq-observability
-    depends_on:
-      - loki
 
 networks:
   moq-observability:
@@ -111,7 +52,5 @@ networks:
 
 volumes:
   prometheus-data:
-  tempo-data:
-  loki-data:
   grafana-data:
-  alloy-data:
+
