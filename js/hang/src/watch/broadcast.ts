@@ -1,7 +1,6 @@
 import type * as Moq from "@moq/lite";
 import { Effect, type Getter, Signal } from "@moq/signals";
 import * as Catalog from "../catalog";
-import { recordMetric } from "../observability";
 import { PRIORITY } from "../publish/priority";
 import * as Audio from "./audio";
 import { Chat, type ChatProps } from "./chat";
@@ -96,9 +95,6 @@ export class Broadcast {
 		effect.cleanup(() => announced.close());
 
 		effect.spawn(async () => {
-			const startTime = performance.now();
-			let firstFrame = true;
-
 			for (;;) {
 				const update = await announced.next();
 				if (!update) break;
@@ -107,13 +103,6 @@ export class Broadcast {
 				if (update.path !== path) {
 					console.warn("ignoring announce", update.path);
 					continue;
-				}
-
-				// Record startup time on first active broadcast (CMCD su)
-				if (firstFrame && update.active) {
-					const startupTime = (performance.now() - startTime) / 1000; // Convert to seconds
-					recordMetric((m) => m.recordStartupTime(startupTime, { track_type: "video" }));
-					firstFrame = false;
 				}
 
 				effect.set(this.#active, update.active, false);

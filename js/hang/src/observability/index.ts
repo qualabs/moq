@@ -6,8 +6,8 @@
  * - `moq_client_startup_time_seconds{track_type=...}`
  */
 
-import { metrics } from "@opentelemetry/api";
 import type { Counter, Histogram, Meter } from "@opentelemetry/api";
+import { metrics } from "@opentelemetry/api";
 import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-http";
 import { MeterProvider, PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics";
 
@@ -76,7 +76,7 @@ function setupConnectionTracking() {
 				});
 			}
 		})
-    .catch((error) => console.warn("Failed to set up connection tracking for observability:", error));
+		.catch((error) => console.warn("Failed to set up connection tracking for observability:", error));
 }
 
 export class ClientMetrics {

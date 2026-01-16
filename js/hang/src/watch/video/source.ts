@@ -42,16 +42,12 @@ export interface VideoStats {
 	timestamp: number;
 	bytesReceived: number;
 	framesDecoded: number;
-	framesDropped: number;
 }
 
 // Only count it as buffering if we had to sleep for 200ms or more before rendering the next frame.
 // Unfortunately, this has to be quite high because of b-frames.
 // TODO Maybe we need to detect b-frames and make this dynamic?
 const MIN_SYNC_WAIT_MS = 200 as Time.Milli;
-
-// Minimum time to wait for a frame before counting it as a rebuffer event (ms)
-const REBUFFER_THRESHOLD_MS = 100;
 
 // The maximum number of concurrent b-frames that we support.
 const MAX_BFRAMES = 10;
@@ -243,6 +239,14 @@ export class Source {
 
 		const decoder = new VideoDecoder({
 			output: async (frame: VideoFrame) => {
+				// Count actual decoded frames here (not per encoded chunk).
+				this.#stats.update((current) => ({
+					frameCount: current?.frameCount ?? 0,
+					timestamp: current?.timestamp ?? 0,
+					bytesReceived: current?.bytesReceived ?? 0,
+					framesDecoded: (current?.framesDecoded ?? 0) + 1,
+				}));
+
 				// Insert into a queue so we can perform ordered sleeps.
 				// If this were to block, I believe WritableStream is still ordered.
 				try {
@@ -345,8 +349,7 @@ export class Source {
 					frameCount: (current?.frameCount ?? 0) + 1,
 					timestamp: next.timestamp,
 					bytesReceived: (current?.bytesReceived ?? 0) + next.data.byteLength,
-					framesDecoded: (current?.framesDecoded ?? 0) + 1,
-					framesDropped: current?.framesDropped ?? 0,
+					framesDecoded: current?.framesDecoded ?? 0,
 				}));
 			}
 		});

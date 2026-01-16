@@ -1,4 +1,5 @@
 import WebTransportWs from "@moq/web-transport-ws";
+import type { Established } from "./established.ts";
 import * as Ietf from "../ietf/index.ts";
 import * as Lite from "../lite/index.ts";
 import { Stream } from "../stream.ts";
@@ -14,7 +15,6 @@ let connectionTypeCallback: ((type: "webtransport" | "websocket") => void) | und
 export function onConnectionType(callback: (type: "webtransport" | "websocket") => void) {
 	connectionTypeCallback = callback;
 }
-import type { Established } from "./established.ts";
 
 export interface WebSocketOptions {
 	// If true (default), enable the WebSocket fallback.
