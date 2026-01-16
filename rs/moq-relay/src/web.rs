@@ -353,28 +353,23 @@ async fn serve_fetch(
 		return Err(StatusCode::NOT_FOUND.into());
 	};
 
-	let metrics = state.cluster.metrics.clone();
-	Ok(ServeGroup::new(group, metrics))
+	Ok(ServeGroup::new(group))
 }
 
 struct ServeGroup {
 	group: moq_lite::GroupConsumer,
 	frame: Option<moq_lite::FrameConsumer>,
-	metrics: crate::MetricsTracker,
 }
 
 impl ServeGroup {
-	fn new(group: moq_lite::GroupConsumer, metrics: crate::MetricsTracker) -> Self {
-		Self { group, frame: None, metrics }
+	fn new(group: moq_lite::GroupConsumer) -> Self {
+		Self { group, frame: None }
 	}
 
 	async fn next(&mut self) -> moq_lite::Result<Option<Bytes>> {
 		loop {
 			if let Some(frame) = self.frame.as_mut() {
 				let data = frame.read_all().await?;
-				let bytes = data.len() as u64;
-				// Track bytes sent (this is data being sent to the HTTP client)
-				self.metrics.record_bytes_sent(bytes);
 				self.frame.take();
 				return Ok(Some(data));
 			}

@@ -1,7 +1,7 @@
 use clap::Parser;
 use serde::{Deserialize, Serialize};
 
-use crate::{AuthConfig, ClusterConfig, ObservabilityConfig, WebConfig};
+use crate::{AuthConfig, ClusterConfig, WebConfig};
 
 #[derive(Parser, Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -35,11 +35,6 @@ pub struct Config {
 	#[serde(default)]
 	pub web: WebConfig,
 
-	/// Observability configuration.
-	#[command(flatten)]
-	#[serde(default)]
-	pub observability: ObservabilityConfig,
-
 	/// If provided, load the configuration from this file.
 	#[serde(default)]
 	pub file: Option<String>,
@@ -52,10 +47,6 @@ pub struct Config {
 
 impl Config {
 	pub fn load() -> anyhow::Result<Self> {
-		Self::load_with_init(true)
-	}
-
-	pub fn load_with_init(init_logging: bool) -> anyhow::Result<Self> {
 		// Parse just the CLI arguments initially.
 		let mut config = Config::parse();
 
@@ -65,9 +56,7 @@ impl Config {
 			config.update_from(std::env::args());
 		}
 
-		if init_logging {
-			config.log.init();
-		}
+		config.log.init();
 		tracing::trace!(?config, "final config");
 
 		Ok(config)

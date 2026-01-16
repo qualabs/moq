@@ -41,24 +41,11 @@ tokio = { workspace = true, features = ["full"] }
 toml = "0.9"
 tower-http = { version = "0.6", features = ["cors"] }
 tracing = "0.1"
-tracing-opentelemetry = "0.25"
-tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
-opentelemetry = "0.24"
-opentelemetry_sdk = { version = "0.24", features = ["rt-tokio"] }
-opentelemetry-otlp = { version = "0.17", features = ["trace", "metrics", "logs", "tonic"] }
-# opentelemetry-semantic-conventions = "0.16"  # TODO: Re-enable once API compatibility is resolved
 url = { version = "2", features = ["serde"] }
 web-transport-ws = { workspace = true }
 
 [target.'cfg(unix)'.dependencies]
 sd-notify = "0.4"
-
-[features]
-tokio-console = ["dep:console-subscriber"]
-
-[dependencies.console-subscriber]
-version = "0.5"
-optional = true
 
 [dev-dependencies]
 tempfile = "3"
