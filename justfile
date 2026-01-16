@@ -413,3 +413,10 @@ pub-console:
 # Serve the documentation locally.
 doc:
 	cd doc && bun run dev
+
+# Start the optional observability stack, then run the full dev demo.
+observability:
+	@echo ">>> Starting observability stack..."
+	(cd observability && docker compose up -d)
+	@echo ">>> Starting demo (just dev)..."
+	just dev
