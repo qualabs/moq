@@ -414,14 +414,9 @@ pub-console:
 doc:
 	cd doc && bun run dev
 
-# Start the optional observability stack (Prometheus, Grafana, OTel Collector).
+# Start the optional observability stack, then run the full dev demo.
 observability:
-	cd observability && docker compose up -d
-
-# Stop the optional observability stack.
-observability-stop:
-	cd observability && docker compose down
-
-# Follow observability stack logs.
-observability-logs:
-	cd observability && docker compose logs -f
+	@echo ">>> Starting observability stack..."
+	(cd observability && docker compose up -d)
+	@echo ">>> Starting demo (just dev)..."
+	just dev
