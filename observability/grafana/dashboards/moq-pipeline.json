@@ -109,7 +109,8 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         { "expr": "sum(moq_relay_active_connections)", "legendFormat": "Active", "refId": "A" },
-        { "expr": "sum(rate(moq_relay_connections_total[1m])) * 60", "legendFormat": "New/min", "refId": "B" }
+        { "expr": "sum(rate(moq_relay_connections_total[1m])) * 60", "legendFormat": "New/min", "refId": "B" },
+        { "expr": "sum by (transport) (moq_relay_active_sessions_by_transport)", "legendFormat": "Active {{transport}}", "refId": "C" }
       ],
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 5 },
       "fieldConfig": {
@@ -342,6 +343,16 @@
           "expr": "sum(rate(moq_relay_app_bytes_received_total[1m])) * 8 / 1000000",
           "legendFormat": "input Mbps",
           "refId": "B"
+        },
+        {
+          "expr": "sum by (transport) (rate(moq_relay_app_bytes_sent_total_by_transport[1m])) * 8 / 1000000",
+          "legendFormat": "output Mbps {{transport}}",
+          "refId": "C"
+        },
+        {
+          "expr": "sum by (transport) (rate(moq_relay_app_bytes_received_total_by_transport[1m])) * 8 / 1000000",
+          "legendFormat": "input Mbps {{transport}}",
+          "refId": "D"
         }
       ],
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 47 },

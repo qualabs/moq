@@ -217,7 +217,7 @@
 			"refId": "A"
 		  }
 		],
-		"title": "Active Connections",
+		"title": "Active WebTransport Connections",
 		"type": "stat"
 	  },
 	  {
@@ -402,7 +402,7 @@
 		"pluginVersion": "12.3.1",
 		"targets": [
 		  {
-			"expr": "sum(rate(moq_client_startup_time_seconds_sum[5m])) / sum(rate(moq_client_startup_time_seconds_count[5m])) or vector(0)",
+			"expr": "sum(increase(moq_client_startup_time_seconds_sum{moq_player_session_id=~\"$client_session\"}[5m])) / sum(increase(moq_client_startup_time_seconds_count{moq_player_session_id=~\"$client_session\"}[5m]))",
 			"refId": "A"
 		  }
 		],
@@ -508,17 +508,17 @@
 		"pluginVersion": "12.3.1",
 		"targets": [
 		  {
-			"expr": "histogram_quantile(0.5, sum(rate(moq_client_buffer_length_seconds_bucket[5m])) by (le))",
+			"expr": "histogram_quantile(0.5, sum(rate(moq_client_buffer_length_seconds_bucket{moq_player_session_id=~\"$client_session\"}[5m])) by (le))",
 			"legendFormat": "p50",
 			"refId": "A"
 		  },
 		  {
-			"expr": "histogram_quantile(0.95, sum(rate(moq_client_buffer_length_seconds_bucket[5m])) by (le))",
+			"expr": "histogram_quantile(0.95, sum(rate(moq_client_buffer_length_seconds_bucket{moq_player_session_id=~\"$client_session\"}[5m])) by (le))",
 			"legendFormat": "p95",
 			"refId": "B"
 		  },
 		  {
-			"expr": "histogram_quantile(0.99, sum(rate(moq_client_buffer_length_seconds_bucket[5m])) by (le))",
+			"expr": "histogram_quantile(0.99, sum(rate(moq_client_buffer_length_seconds_bucket{moq_player_session_id=~\"$client_session\"}[5m])) by (le))",
 			"legendFormat": "p99",
 			"refId": "C"
 		  }
@@ -2118,6 +2118,35 @@
 	],
 	"templating": {
 	  "list": [
+		{
+		  "allValue": ".*",
+		  "current": {
+			"selected": false,
+			"text": "All",
+			"value": "$__all"
+		  },
+		  "datasource": {
+			"type": "prometheus",
+			"uid": "prometheus"
+		  },
+		  "definition": "label_values(moq_client_connections_total{transport=\"websocket\"}, moq_player_session_id)",
+		  "description": "Filter client metrics by per-player session id",
+		  "hide": 0,
+		  "includeAll": true,
+		  "label": "Client Session",
+		  "multi": true,
+		  "name": "client_session",
+		  "options": [],
+		  "query": {
+			"query": "label_values(moq_client_connections_total{transport=\"websocket\"}, moq_player_session_id)",
+			"refId": "StandardVariableQuery"
+		  },
+		  "refresh": 2,
+		  "regex": "",
+		  "skipUrlSync": false,
+		  "sort": 1,
+		  "type": "query"
+		},
 		{
 		  "current": {
 			"text": "",

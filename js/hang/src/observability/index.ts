@@ -17,6 +17,7 @@ import { Resource } from "@opentelemetry/resources";
 let tracer: Tracer | undefined;
 let meter: Meter | undefined;
 let initialized = false;
+let sessionId: string | undefined;
 
 export interface ObservabilityConfig {
 	/** OTLP endpoint URL (default: http://localhost:4318) */
@@ -25,6 +26,16 @@ export interface ObservabilityConfig {
 	serviceName?: string;
 	/** Enable observability (default: true if endpoint provided) */
 	enabled?: boolean;
+	/** Per-player session id (defaults to a random UUID) */
+	sessionId?: string;
+}
+
+function createSessionId(): string {
+	try {
+		return globalThis.crypto?.randomUUID?.() ?? `sid-${Math.random().toString(16).slice(2)}-${Date.now()}`;
+	} catch {
+		return `sid-${Math.random().toString(16).slice(2)}-${Date.now()}`;
+	}
 }
 
 /**
@@ -38,6 +49,7 @@ export function initObservability(config: ObservabilityConfig = {}): void {
 	const endpoint = config.otlpEndpoint || "http://localhost:4318";
 	const serviceName = config.serviceName || "moq-client";
 	const enabled = config.enabled ?? !!config.otlpEndpoint;
+	sessionId = config.sessionId || createSessionId();
 
 	if (!enabled) {
 		console.log("[Observability] Disabled - no endpoint configured");
@@ -47,6 +59,8 @@ export function initObservability(config: ObservabilityConfig = {}): void {
 	try {
 		const resource = new Resource({
 			"service.name": serviceName,
+			"service.instance.id": sessionId,
+			"moq.player.session_id": sessionId,
 		});
 
 		// Common headers for OTLP exporters (no auth to avoid CORS credentials issues)
@@ -107,7 +121,7 @@ function setupConnectionTracking() {
 	import("@moq/lite").then((Moq) => {
 		if (Moq.Connection?.onConnectionType) {
 			Moq.Connection.onConnectionType((type: "webtransport" | "websocket") => {
-				getClientMetrics()?.recordConnection(type);
+				getClientMetrics()?.recordConnection(type, sessionId ? { "moq.player.session_id": sessionId } : undefined);
 			});
 			console.log("[Observability] Connection type tracking enabled");
 		}

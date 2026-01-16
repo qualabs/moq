@@ -5,6 +5,21 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
+#[derive(Clone, Copy, Debug)]
+pub enum Transport {
+	WebTransport,
+	WebSocket,
+}
+
+impl Transport {
+	pub fn as_str(&self) -> &'static str {
+		match self {
+			Transport::WebTransport => "webtransport",
+			Transport::WebSocket => "websocket",
+		}
+	}
+}
+
 /// Global metrics tracker
 /// Uses atomic counters for thread-safe metrics collection
 #[derive(Clone, Default)]
@@ -13,12 +28,22 @@ pub struct MetricsTracker {
 	active_subscribers: Arc<AtomicU64>,
 	active_connections: Arc<AtomicU64>,
 	total_connections: Arc<AtomicU64>,
+	// Transport-specific sessions (WS vs WebTransport).
+	active_sessions_webtransport: Arc<AtomicU64>,
+	active_sessions_websocket: Arc<AtomicU64>,
+	total_sessions_webtransport: Arc<AtomicU64>,
+	total_sessions_websocket: Arc<AtomicU64>,
 	// Transport-level bytes (may include retransmissions depending on transport)
 	bytes_sent: Arc<AtomicU64>,
 	bytes_received: Arc<AtomicU64>,
 	// Application-level payload bytes (frame chunks). Ignores retransmissions.
 	app_bytes_sent: Arc<AtomicU64>,
 	app_bytes_received: Arc<AtomicU64>,
+	// Application-level payload bytes by transport.
+	app_bytes_sent_webtransport: Arc<AtomicU64>,
+	app_bytes_sent_websocket: Arc<AtomicU64>,
+	app_bytes_received_webtransport: Arc<AtomicU64>,
+	app_bytes_received_websocket: Arc<AtomicU64>,
 	connection_errors: Arc<AtomicU64>,
 	// MoQ objects (individual data units within a group)
 	objects_sent: Arc<AtomicU64>,
@@ -73,6 +98,32 @@ impl MetricsTracker {
 		self.active_connections.fetch_sub(1, Ordering::Relaxed);
 	}
 
+	/// Increment active sessions by transport (call on accept).
+	pub fn increment_sessions(&self, transport: Transport) {
+		match transport {
+			Transport::WebTransport => {
+				self.active_sessions_webtransport.fetch_add(1, Ordering::Relaxed);
+				self.total_sessions_webtransport.fetch_add(1, Ordering::Relaxed);
+			}
+			Transport::WebSocket => {
+				self.active_sessions_websocket.fetch_add(1, Ordering::Relaxed);
+				self.total_sessions_websocket.fetch_add(1, Ordering::Relaxed);
+			}
+		}
+	}
+
+	/// Decrement active sessions by transport (call on close).
+	pub fn decrement_sessions(&self, transport: Transport) {
+		match transport {
+			Transport::WebTransport => {
+				self.active_sessions_webtransport.fetch_sub(1, Ordering::Relaxed);
+			}
+			Transport::WebSocket => {
+				self.active_sessions_websocket.fetch_sub(1, Ordering::Relaxed);
+			}
+		}
+	}
+
 	/// Record a connection error
 	pub fn record_error(&self) {
 		self.connection_errors.fetch_add(1, Ordering::Relaxed);
@@ -96,6 +147,32 @@ impl MetricsTracker {
 	/// Record application-level payload bytes received (frame chunks read from the network).
 	pub fn record_app_bytes_received(&self, bytes: u64) {
 		self.app_bytes_received.fetch_add(bytes, Ordering::Relaxed);
+	}
+
+	/// Record application-level payload bytes sent, attributed by transport.
+	pub fn record_app_bytes_sent_by_transport(&self, transport: Transport, bytes: u64) {
+		self.record_app_bytes_sent(bytes);
+		match transport {
+			Transport::WebTransport => {
+				self.app_bytes_sent_webtransport.fetch_add(bytes, Ordering::Relaxed);
+			}
+			Transport::WebSocket => {
+				self.app_bytes_sent_websocket.fetch_add(bytes, Ordering::Relaxed);
+			}
+		}
+	}
+
+	/// Record application-level payload bytes received, attributed by transport.
+	pub fn record_app_bytes_received_by_transport(&self, transport: Transport, bytes: u64) {
+		self.record_app_bytes_received(bytes);
+		match transport {
+			Transport::WebTransport => {
+				self.app_bytes_received_webtransport.fetch_add(bytes, Ordering::Relaxed);
+			}
+			Transport::WebSocket => {
+				self.app_bytes_received_websocket.fetch_add(bytes, Ordering::Relaxed);
+			}
+		}
 	}
 
 	/// Record a MoQ object sent
@@ -242,6 +319,45 @@ impl MetricsTracker {
 	pub fn queue_depth(&self) -> u64 {
 		self.queue_depth.load(Ordering::Relaxed)
 	}
+
+	pub fn active_sessions(&self, transport: Transport) -> u64 {
+		match transport {
+			Transport::WebTransport => self.active_sessions_webtransport.load(Ordering::Relaxed),
+			Transport::WebSocket => self.active_sessions_websocket.load(Ordering::Relaxed),
+		}
+	}
+
+	pub fn total_sessions(&self, transport: Transport) -> u64 {
+		match transport {
+			Transport::WebTransport => self.total_sessions_webtransport.load(Ordering::Relaxed),
+			Transport::WebSocket => self.total_sessions_websocket.load(Ordering::Relaxed),
+		}
+	}
+
+	pub fn total_app_bytes_sent_by_transport(&self, transport: Transport) -> u64 {
+		match transport {
+			Transport::WebTransport => self.app_bytes_sent_webtransport.load(Ordering::Relaxed),
+			Transport::WebSocket => self.app_bytes_sent_websocket.load(Ordering::Relaxed),
+		}
+	}
+
+	pub fn total_app_bytes_received_by_transport(&self, transport: Transport) -> u64 {
+		match transport {
+			Transport::WebTransport => self.app_bytes_received_webtransport.load(Ordering::Relaxed),
+			Transport::WebSocket => self.app_bytes_received_websocket.load(Ordering::Relaxed),
+		}
+	}
+}
+
+pub struct TransportStats {
+	metrics: MetricsTracker,
+	transport: Transport,
+}
+
+impl TransportStats {
+	pub fn new(metrics: MetricsTracker, transport: Transport) -> Self {
+		Self { metrics, transport }
+	}
 }
 
 // Provide application-level byte accounting to moq-lite via a trait object.
@@ -252,5 +368,17 @@ impl moq_native::moq_lite::Stats for MetricsTracker {
 
 	fn add_tx_bytes(&self, bytes: u64) {
 		self.record_app_bytes_sent(bytes);
+	}
+}
+
+// Provide transport-attributed application-level byte accounting to moq-lite via a trait object.
+impl moq_native::moq_lite::Stats for TransportStats {
+	fn add_rx_bytes(&self, bytes: u64) {
+		self.metrics
+			.record_app_bytes_received_by_transport(self.transport, bytes);
+	}
+
+	fn add_tx_bytes(&self, bytes: u64) {
+		self.metrics.record_app_bytes_sent_by_transport(self.transport, bytes);
 	}
 }

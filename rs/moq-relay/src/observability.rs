@@ -84,12 +84,20 @@ pub fn start_metrics_export_task(
 		let mut last_active_streams = 0i64;
 		let mut last_active_subscribers = 0i64;
 		let mut last_active_connections = 0i64;
+		let mut last_active_sessions_ws = 0i64;
+		let mut last_active_sessions_wt = 0i64;
 		// Cache and dedup tracking
 		let mut last_cache_hits = 0u64;
 		let mut last_cache_misses = 0u64;
 		let mut last_dedup_saved = 0u64;
 		let mut last_drops = 0u64;
 		let mut last_queue_depth = 0i64;
+		let mut last_sessions_total_ws = 0u64;
+		let mut last_sessions_total_wt = 0u64;
+		let mut last_app_bytes_sent_ws = 0u64;
+		let mut last_app_bytes_sent_wt = 0u64;
+		let mut last_app_bytes_received_ws = 0u64;
+		let mut last_app_bytes_received_wt = 0u64;
 
 		loop {
 			interval.tick().await;
@@ -124,12 +132,78 @@ pub fn start_metrics_export_task(
 				last_active_connections = current_active_conns;
 			}
 
+			// Export active sessions by transport (UpDownCounter - add delta)
+			let current_active_sessions_ws =
+				metrics_tracker.active_sessions(crate::metrics::Transport::WebSocket) as i64;
+			let delta_active_sessions_ws = current_active_sessions_ws - last_active_sessions_ws;
+			if delta_active_sessions_ws != 0 {
+				let labels_ws = &[
+					KeyValue::new("relay_instance", relay_instance.clone()),
+					KeyValue::new("region", region_str.clone()),
+					KeyValue::new("namespace", namespace_str.clone()),
+					KeyValue::new("transport", "websocket"),
+				];
+				relay_metrics
+					.active_sessions_by_transport
+					.add(delta_active_sessions_ws as f64, labels_ws);
+				last_active_sessions_ws = current_active_sessions_ws;
+			}
+
+			let current_active_sessions_wt =
+				metrics_tracker.active_sessions(crate::metrics::Transport::WebTransport) as i64;
+			let delta_active_sessions_wt = current_active_sessions_wt - last_active_sessions_wt;
+			if delta_active_sessions_wt != 0 {
+				let labels_wt = &[
+					KeyValue::new("relay_instance", relay_instance.clone()),
+					KeyValue::new("region", region_str.clone()),
+					KeyValue::new("namespace", namespace_str.clone()),
+					KeyValue::new("transport", "webtransport"),
+				];
+				relay_metrics
+					.active_sessions_by_transport
+					.add(delta_active_sessions_wt as f64, labels_wt);
+				last_active_sessions_wt = current_active_sessions_wt;
+			}
+
 			// Export total connections (Counter - add delta)
 			let current_total_conns = metrics_tracker.total_connections();
 			let delta_total_conns = current_total_conns.saturating_sub(last_connections);
 			if delta_total_conns > 0 {
 				relay_metrics.connections_total.add(delta_total_conns, labels);
 				last_connections = current_total_conns;
+			}
+
+			// Export total sessions by transport (Counter - add delta)
+			let current_sessions_total_ws =
+				metrics_tracker.total_sessions(crate::metrics::Transport::WebSocket);
+			let delta_sessions_total_ws = current_sessions_total_ws.saturating_sub(last_sessions_total_ws);
+			if delta_sessions_total_ws > 0 {
+				let labels_ws = &[
+					KeyValue::new("relay_instance", relay_instance.clone()),
+					KeyValue::new("region", region_str.clone()),
+					KeyValue::new("namespace", namespace_str.clone()),
+					KeyValue::new("transport", "websocket"),
+				];
+				relay_metrics
+					.sessions_total_by_transport
+					.add(delta_sessions_total_ws, labels_ws);
+				last_sessions_total_ws = current_sessions_total_ws;
+			}
+
+			let current_sessions_total_wt =
+				metrics_tracker.total_sessions(crate::metrics::Transport::WebTransport);
+			let delta_sessions_total_wt = current_sessions_total_wt.saturating_sub(last_sessions_total_wt);
+			if delta_sessions_total_wt > 0 {
+				let labels_wt = &[
+					KeyValue::new("relay_instance", relay_instance.clone()),
+					KeyValue::new("region", region_str.clone()),
+					KeyValue::new("namespace", namespace_str.clone()),
+					KeyValue::new("transport", "webtransport"),
+				];
+				relay_metrics
+					.sessions_total_by_transport
+					.add(delta_sessions_total_wt, labels_wt);
+				last_sessions_total_wt = current_sessions_total_wt;
 			}
 
 			// Export errors (Counter - add delta)
@@ -168,6 +242,73 @@ pub fn start_metrics_export_task(
 			if delta_app_received > 0 {
 				relay_metrics.app_bytes_received_total.add(delta_app_received, labels);
 				last_app_bytes_received = current_app_bytes_received;
+			}
+
+			// Export application-level payload bytes by transport (counters - track deltas)
+			let current_app_bytes_sent_ws =
+				metrics_tracker.total_app_bytes_sent_by_transport(crate::metrics::Transport::WebSocket);
+			let delta_app_bytes_sent_ws = current_app_bytes_sent_ws.saturating_sub(last_app_bytes_sent_ws);
+			if delta_app_bytes_sent_ws > 0 {
+				let labels_ws = &[
+					KeyValue::new("relay_instance", relay_instance.clone()),
+					KeyValue::new("region", region_str.clone()),
+					KeyValue::new("namespace", namespace_str.clone()),
+					KeyValue::new("transport", "websocket"),
+				];
+				relay_metrics
+					.app_bytes_sent_total_by_transport
+					.add(delta_app_bytes_sent_ws, labels_ws);
+				last_app_bytes_sent_ws = current_app_bytes_sent_ws;
+			}
+
+			let current_app_bytes_sent_wt =
+				metrics_tracker.total_app_bytes_sent_by_transport(crate::metrics::Transport::WebTransport);
+			let delta_app_bytes_sent_wt = current_app_bytes_sent_wt.saturating_sub(last_app_bytes_sent_wt);
+			if delta_app_bytes_sent_wt > 0 {
+				let labels_wt = &[
+					KeyValue::new("relay_instance", relay_instance.clone()),
+					KeyValue::new("region", region_str.clone()),
+					KeyValue::new("namespace", namespace_str.clone()),
+					KeyValue::new("transport", "webtransport"),
+				];
+				relay_metrics
+					.app_bytes_sent_total_by_transport
+					.add(delta_app_bytes_sent_wt, labels_wt);
+				last_app_bytes_sent_wt = current_app_bytes_sent_wt;
+			}
+
+			let current_app_bytes_received_ws =
+				metrics_tracker.total_app_bytes_received_by_transport(crate::metrics::Transport::WebSocket);
+			let delta_app_bytes_received_ws =
+				current_app_bytes_received_ws.saturating_sub(last_app_bytes_received_ws);
+			if delta_app_bytes_received_ws > 0 {
+				let labels_ws = &[
+					KeyValue::new("relay_instance", relay_instance.clone()),
+					KeyValue::new("region", region_str.clone()),
+					KeyValue::new("namespace", namespace_str.clone()),
+					KeyValue::new("transport", "websocket"),
+				];
+				relay_metrics
+					.app_bytes_received_total_by_transport
+					.add(delta_app_bytes_received_ws, labels_ws);
+				last_app_bytes_received_ws = current_app_bytes_received_ws;
+			}
+
+			let current_app_bytes_received_wt =
+				metrics_tracker.total_app_bytes_received_by_transport(crate::metrics::Transport::WebTransport);
+			let delta_app_bytes_received_wt =
+				current_app_bytes_received_wt.saturating_sub(last_app_bytes_received_wt);
+			if delta_app_bytes_received_wt > 0 {
+				let labels_wt = &[
+					KeyValue::new("relay_instance", relay_instance.clone()),
+					KeyValue::new("region", region_str.clone()),
+					KeyValue::new("namespace", namespace_str.clone()),
+					KeyValue::new("transport", "webtransport"),
+				];
+				relay_metrics
+					.app_bytes_received_total_by_transport
+					.add(delta_app_bytes_received_wt, labels_wt);
+				last_app_bytes_received_wt = current_app_bytes_received_wt;
 			}
 
 			// Export MoQ objects sent/received (counters - track deltas)
@@ -375,6 +516,12 @@ pub struct RelayMetrics {
 	pub active_subscribers: UpDownCounter<f64>,
 	pub active_connections: UpDownCounter<f64>,
 	pub connections_total: Counter<u64>,
+	// Transport-split session metrics (WS vs WebTransport)
+	pub active_sessions_by_transport: UpDownCounter<f64>,
+	pub sessions_total_by_transport: Counter<u64>,
+	// Transport-split application payload bytes (from moq-lite Stats hooks)
+	pub app_bytes_sent_total_by_transport: Counter<u64>,
+	pub app_bytes_received_total_by_transport: Counter<u64>,
 	pub errors_total: Counter<u64>,
 	pub bytes_sent_total: Counter<u64>,
 	pub bytes_received_total: Counter<u64>,
@@ -419,6 +566,22 @@ impl RelayMetrics {
 			connections_total: meter
 				.u64_counter("moq_relay_connections_total")
 				.with_description("Total connections ever accepted")
+				.init(),
+			active_sessions_by_transport: meter
+				.f64_up_down_counter("moq_relay_active_sessions_by_transport")
+				.with_description("Number of active MoQ sessions by transport (websocket/webtransport)")
+				.init(),
+			sessions_total_by_transport: meter
+				.u64_counter("moq_relay_sessions_total_by_transport")
+				.with_description("Total MoQ sessions accepted by transport (websocket/webtransport)")
+				.init(),
+			app_bytes_sent_total_by_transport: meter
+				.u64_counter("moq_relay_app_bytes_sent_total_by_transport")
+				.with_description("Application payload bytes sent by transport (excludes retransmits)")
+				.init(),
+			app_bytes_received_total_by_transport: meter
+				.u64_counter("moq_relay_app_bytes_received_total_by_transport")
+				.with_description("Application payload bytes received by transport (excludes retransmits)")
 				.init(),
 			errors_total: meter
 				.u64_counter("moq_relay_errors_total")

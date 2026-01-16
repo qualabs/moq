@@ -20,6 +20,9 @@ impl Connection {
 
 		// Track connection start
 		self.cluster.metrics.increment_connections();
+		self.cluster
+			.metrics
+			.increment_sessions(crate::metrics::Transport::WebTransport);
 
 		// Get current span and add connection_id and qlog_path attributes
 		let span = tracing::Span::current();
@@ -83,8 +86,12 @@ impl Connection {
 		}
 
 		// Accept the connection.
-		let stats: std::sync::Arc<dyn moq_native::moq_lite::Stats> =
-			std::sync::Arc::new(self.cluster.metrics.clone());
+		let stats: std::sync::Arc<dyn moq_native::moq_lite::Stats> = std::sync::Arc::new(
+			crate::metrics::TransportStats::new(
+				self.cluster.metrics.clone(),
+				crate::metrics::Transport::WebTransport,
+			),
+		);
 		let session = self
 			.request
 			.accept_with_stats(subscribe, publish, Some(stats))
@@ -179,6 +186,7 @@ impl Connection {
 
 		// Decrement active connections
 		metrics.decrement_connections();
+		metrics.decrement_sessions(crate::metrics::Transport::WebTransport);
 
 		result
 	}

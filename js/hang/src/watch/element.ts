@@ -19,6 +19,11 @@ const cleanup = new FinalizationRegistry<Effect>((signals) => signals.close());
 export default class HangWatch extends HTMLElement {
 	static observedAttributes = OBSERVED;
 
+	// Per-player session identifier used for telemetry correlation.
+	// In practice this is per page/tab unless multiple players exist in one page.
+	private readonly sessionId =
+		globalThis.crypto?.randomUUID?.() ?? `sid-${Math.random().toString(16).slice(2)}-${Date.now()}`;
+
 	// The connection to the moq-relay server.
 	connection: Moq.Connection.Reload;
 
@@ -76,7 +81,7 @@ export default class HangWatch extends HTMLElement {
 			const url = effect.get(this.url);
 			if (url) {
 				const otelEndpoint = `http://${url.hostname}:4318`;
-				Observability.initObservability({ otlpEndpoint: otelEndpoint });
+				Observability.initObservability({ otlpEndpoint: otelEndpoint, sessionId: this.sessionId });
 			}
 		});
 

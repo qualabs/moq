@@ -216,9 +216,26 @@ where
 		+ Unpin
 		+ 'static,
 {
+	// Track WS sessions separately from WebTransport connections.
+	metrics.increment_sessions(crate::metrics::Transport::WebSocket);
+	struct SessionGuard {
+		metrics: crate::MetricsTracker,
+	}
+	impl Drop for SessionGuard {
+		fn drop(&mut self) {
+			self.metrics
+				.decrement_sessions(crate::metrics::Transport::WebSocket);
+		}
+	}
+	let _guard = SessionGuard {
+		metrics: metrics.clone(),
+	};
+
 	// Wrap the WebSocket in a WebTransport compatibility layer.
 	let ws = web_transport_ws::Session::new(socket, true);
-	let stats: std::sync::Arc<dyn moq_native::moq_lite::Stats> = std::sync::Arc::new(metrics);
+	let stats: std::sync::Arc<dyn moq_native::moq_lite::Stats> = std::sync::Arc::new(
+		crate::metrics::TransportStats::new(metrics, crate::metrics::Transport::WebSocket),
+	);
 	let session = moq_lite::Session::accept_with_stats(ws, subscribe, publish, Some(stats)).await?;
 	session.closed().await.map_err(Into::into)
 }
