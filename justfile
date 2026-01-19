@@ -420,3 +420,7 @@ observability:
 	(cd observability && docker compose up -d)
 	@echo ">>> Starting demo (just dev)..."
 	just dev
+
+# Throttle UDP traffic for testing (macOS only, requires sudo)
+throttle:
+	dev/throttle
