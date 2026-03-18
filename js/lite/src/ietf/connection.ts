@@ -38,6 +38,9 @@ export class Connection implements Established {
 	// The URL of the connection.
 	readonly url: URL;
 
+	// The transport layer used to establish this connection.
+	readonly transport: "webtransport" | "websocket";
+
 	// The established WebTransport session.
 	#quic: WebTransport;
 
@@ -61,8 +64,9 @@ export class Connection implements Established {
 	 *
 	 * @internal
 	 */
-	constructor(url: URL, quic: WebTransport, control: Stream, maxRequestId: bigint) {
+	constructor(url: URL, quic: WebTransport, control: Stream, maxRequestId: bigint, transport: "webtransport" | "websocket") {
 		this.url = url;
+		this.transport = transport;
 		this.#quic = quic;
 		this.#control = new Control.Stream(control, maxRequestId);
 

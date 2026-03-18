@@ -21,6 +21,9 @@ export class Connection implements Established {
 	// The URL of the connection.
 	readonly url: URL;
 
+	// The transport layer used to establish this connection.
+	readonly transport: "webtransport" | "websocket";
+
 	// The version of the connection.
 	readonly version: Version;
 
@@ -47,8 +50,9 @@ export class Connection implements Established {
 	 *
 	 * @internal
 	 */
-	constructor(url: URL, quic: WebTransport, session: Stream, version: Version) {
+	constructor(url: URL, quic: WebTransport, session: Stream, version: Version, transport: "webtransport" | "websocket") {
 		this.url = url;
+		this.transport = transport;
 		this.#quic = quic;
 		this.#session = session;
 		this.version = version;

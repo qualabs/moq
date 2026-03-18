@@ -3,7 +3,7 @@ import type { Time } from "@moq/lite";
 import { Effect, type Getter, Signal } from "@moq/signals";
 import type * as Catalog from "../../catalog";
 import * as Frame from "../../frame";
-import { recordMetric } from "../../observability";
+import { recordBytesReceived, recordFrameDecoded, recordStartupTime } from "../../telemetry/bridge";
 import * as Hex from "../../util/hex";
 import * as libav from "../../util/libav";
 import type * as Render from "./render";
@@ -204,13 +204,16 @@ export class Source {
 				if (!firstFrameDecoded) {
 					firstFrameDecoded = true;
 					const ttfaSeconds = (performance.now() - trackStartTime) / 1000;
-					recordMetric((m) => m.recordStartupTime(ttfaSeconds, { codec: config.codec, track_type: "audio" }));
+					recordStartupTime(ttfaSeconds * 1000, { codec: config.codec, track_type: "audio" });
 					console.log(`[Audio] Time-to-first-audio: ${(ttfaSeconds * 1000).toFixed(0)}ms`);
 				}
 
 				this.#stats.update((stats) => ({
 					bytesReceived: (stats?.bytesReceived ?? 0) + frame.data.byteLength,
 				}));
+
+				recordBytesReceived(frame.data.byteLength, "audio", { codec: config.codec });
+				recordFrameDecoded(1, { codec: config.codec, track_type: "audio" });
 
 				const chunk = new EncodedAudioChunk({
 					type: frame.keyframe ? "key" : "delta",

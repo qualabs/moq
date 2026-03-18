@@ -3,7 +3,7 @@ import type { Time } from "@moq/lite";
 import { Effect, type Getter, Signal } from "@moq/signals";
 import type * as Catalog from "../../catalog";
 import * as Frame from "../../frame";
-import { recordMetric } from "../../observability";
+import { recordBytesReceived, recordFrameDecoded, recordStall, recordStartupTime } from "../../telemetry/bridge";
 import { PRIORITY } from "../../publish/priority";
 import * as Hex from "../../util/hex";
 
@@ -246,6 +246,7 @@ export class Source {
 					bytesReceived: current?.bytesReceived ?? 0,
 					framesDecoded: (current?.framesDecoded ?? 0) + 1,
 				}));
+				recordFrameDecoded(1, { codec: config.codec });
 
 				// Insert into a queue so we can perform ordered sleeps.
 				// If this were to block, I believe WritableStream is still ordered.
@@ -284,6 +285,10 @@ export class Source {
 				// Note: Large sleep means we're AHEAD (have buffer), not rebuffering
 				// Rebuffering is detected in the consumer.decode() wait below
 				if (sleep > MIN_SYNC_WAIT_MS) {
+					// Only count the stall once when we enter the wait state.
+					if (this.syncStatus.peek().state !== "wait") {
+						recordStall(1, { codec: config.codec });
+					}
 					this.syncStatus.set({ state: "wait", bufferDuration: sleep });
 				}
 
@@ -312,7 +317,7 @@ export class Source {
 				if (!firstFrameRendered) {
 					firstFrameRendered = true;
 					const ttffSeconds = (performance.now() - trackStartTime) / 1000;
-					recordMetric((m) => m.recordStartupTime(ttffSeconds, { codec: config.codec, track_type: "video" }));
+					recordStartupTime(ttffSeconds * 1000, { codec: config.codec, track_type: "video" });
 					console.log(`[Video] Time-to-first-frame: ${(ttffSeconds * 1000).toFixed(0)}ms`);
 				}
 
@@ -351,6 +356,7 @@ export class Source {
 					bytesReceived: (current?.bytesReceived ?? 0) + next.data.byteLength,
 					framesDecoded: current?.framesDecoded ?? 0,
 				}));
+				recordBytesReceived(next.data.byteLength, "video", { codec: config.codec });
 			}
 		});
 	}

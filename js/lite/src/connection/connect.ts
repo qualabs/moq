@@ -5,17 +5,6 @@ import { Stream } from "../stream.ts";
 import * as Hex from "../util/hex.ts";
 import type { Established } from "./established.ts";
 
-// Connection type tracking for observability
-let connectionTypeCallback: ((type: "webtransport" | "websocket") => void) | undefined;
-
-/**
- * Register a callback to be notified of connection type.
- * Used by observability to track WebTransport vs WebSocket usage.
- */
-export function onConnectionType(callback: (type: "webtransport" | "websocket") => void) {
-	connectionTypeCallback = callback;
-}
-
 export interface WebSocketOptions {
 	// If true (default), enable the WebSocket fallback.
 	enabled?: boolean;
@@ -84,11 +73,6 @@ export async function connect(url: URL, props?: ConnectProps): Promise<Establish
 		websocketWon.add(url.toString());
 	}
 
-	// Notify observability of connection type
-	if (connectionTypeCallback) {
-		connectionTypeCallback(transportType);
-	}
-
 	// moq-rs currently requires the ROLE extension to be set.
 	const stream = await Stream.open(quic);
 
@@ -116,11 +100,11 @@ export async function connect(url: URL, props?: ConnectProps): Promise<Establish
 
 	if (Object.values(Lite.Version).includes(server.version as Lite.Version)) {
 		console.debug(url.toString(), "moq-lite session established");
-		return new Lite.Connection(url, quic, stream, server.version as Lite.Version);
+		return new Lite.Connection(url, quic, stream, server.version as Lite.Version, transportType);
 	} else if (Object.values(Ietf.Version).includes(server.version as Ietf.Version)) {
 		const maxRequestId = server.parameters.getVarint(Ietf.Parameter.MaxRequestId) ?? 0n;
 		console.debug(url.toString(), "moq-ietf session established");
-		return new Ietf.Connection(url, quic, stream, maxRequestId);
+		return new Ietf.Connection(url, quic, stream, maxRequestId, transportType);
 	} else {
 		throw new Error(`unsupported server version: ${server.version.toString()}`);
 	}

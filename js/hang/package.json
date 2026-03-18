@@ -15,13 +15,17 @@
 		"./meet/element": "./src/meet/element.ts",
 		"./catalog": "./src/catalog/index.ts",
 		"./support": "./src/support/index.ts",
-		"./support/element": "./src/support/element.ts"
+		"./support/element": "./src/support/element.ts",
+		"./telemetry": "./src/telemetry/index.ts",
+		"./telemetry/bridge": "./src/telemetry/bridge.ts",
+		"./telemetry/element": "./src/telemetry/element.ts"
 	},
 	"sideEffects": [
 		"./src/publish/element.ts",
 		"./src/watch/element.ts",
 		"./src/support/element.ts",
-		"./src/meet/element.ts"
+		"./src/meet/element.ts",
+		"./src/telemetry/element.ts"
 	],
 	"scripts": {
 		"build": "rimraf dist && tsc -b && bun ../scripts/package.ts",

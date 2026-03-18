@@ -260,8 +260,8 @@ serve name *args:
 		--name "{{name}}" fmp4
 
 # Run the web server
-web url='http://localhost:4443/anon':
-	cd js/hang-demo && VITE_RELAY_URL="{{url}}" bun run dev
+web url='http://localhost:4443/anon' telemetry='http://localhost:4318':
+	cd js/hang-demo && VITE_RELAY_URL="{{url}}" VITE_TELEMETRY_URL="{{telemetry}}" bun run dev
 
 # Publish the clock broadcast
 # `action` is either `publish` or `subscribe`

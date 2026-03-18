@@ -1,9 +1,9 @@
 import type { Time } from "@moq/lite";
 import * as Moq from "@moq/lite";
 import { Effect, Signal } from "@moq/signals";
-import * as Observability from "../observability";
 import * as Audio from "./audio";
 import { Broadcast } from "./broadcast";
+import { recordConnection, recordDisconnect } from "../telemetry/bridge";
 import * as Video from "./video";
 
 // TODO remove name; replaced with path
@@ -18,11 +18,6 @@ const cleanup = new FinalizationRegistry<Effect>((signals) => signals.close());
 // An optional web component that wraps a <canvas>
 export default class HangWatch extends HTMLElement {
 	static observedAttributes = OBSERVED;
-
-	// Per-player session identifier used for telemetry correlation.
-	// In practice this is per page/tab unless multiple players exist in one page.
-	private readonly sessionId =
-		globalThis.crypto?.randomUUID?.() ?? `sid-${Math.random().toString(16).slice(2)}-${Date.now()}`;
 
 	// The connection to the moq-relay server.
 	connection: Moq.Connection.Reload;
@@ -75,14 +70,14 @@ export default class HangWatch extends HTMLElement {
 
 		cleanup.register(this, this.signals);
 
-		// Auto-initialize observability when URL is set
-		// Derives OTel endpoint from relay URL (same host, port 4318)
+		let prevTransport: "webtransport" | "websocket" | undefined;
 		this.signals.effect((effect) => {
-			const url = effect.get(this.url);
-			if (url) {
-				const otelEndpoint = `http://${url.hostname}:4318`;
-				Observability.initObservability({ otlpEndpoint: otelEndpoint, sessionId: this.sessionId });
-			}
+			const conn = effect.get(this.connection.established);
+			if (prevTransport) 
+				recordDisconnect(prevTransport);
+			prevTransport = conn?.transport;
+			if (conn) 
+				recordConnection(conn.transport);
 		});
 
 		this.connection = new Moq.Connection.Reload({
@@ -90,14 +85,6 @@ export default class HangWatch extends HTMLElement {
 			enabled: this.#enabled,
 		});
 		this.signals.cleanup(() => this.connection.close());
-
-		// Create trace span for playback session after observability is initialized
-		this.signals.effect((effect) => {
-			const url = effect.get(this.url);
-			if (url) {
-				// Metrics-only observability; no tracing spans.
-			}
-		});
 
 		this.broadcast = new Broadcast({
 			connection: this.connection.established,

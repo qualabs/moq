@@ -6,6 +6,9 @@ import type * as Path from "../path.ts";
 export interface Established {
 	readonly url: URL;
 
+	/** The transport layer that was used to establish this connection. */
+	readonly transport: "webtransport" | "websocket";
+
 	announced(prefix?: Path.Valid): Announced;
 	publish(path: Path.Valid, broadcast: Broadcast): void;
 	consume(broadcast: Path.Valid): Broadcast;
