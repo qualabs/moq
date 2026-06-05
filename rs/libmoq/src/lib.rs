@@ -1,4 +1,4 @@
-//! C FFI bindings for [`moq_lite`].
+//! C bindings for [`moq_net`].
 //!
 //! Provides a C-compatible API for real-time pub/sub over QUIC.
 //!
@@ -17,6 +17,7 @@
 //! Resources are managed through opaque integer handles that must be explicitly closed.
 
 mod api;
+mod audio;
 mod consume;
 mod error;
 mod ffi;
@@ -27,6 +28,7 @@ mod session;
 mod state;
 
 pub use api::*;
+pub use audio::*;
 pub use error::*;
 pub use id::*;
 
@@ -35,3 +37,6 @@ pub(crate) use origin::*;
 pub(crate) use publish::*;
 pub(crate) use session::*;
 pub(crate) use state::*;
+
+#[cfg(test)]
+mod test;

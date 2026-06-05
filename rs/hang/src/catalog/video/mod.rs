@@ -10,11 +10,13 @@ pub use h264::*;
 pub use h265::*;
 pub use vp9::*;
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, btree_map};
 
 use bytes::Bytes;
 use serde::{Deserialize, Serialize};
 use serde_with::{DisplayFromStr, hex::Hex};
+
+use crate::catalog::Container;
 
 /// Information about a video track in the catalog.
 ///
@@ -29,9 +31,6 @@ pub struct Video {
 	/// This is not an array in order for it to work with JSON Merge Patch.
 	/// We use a BTreeMap so keys are sorted alphabetically for *some* deterministic behavior.
 	pub renditions: BTreeMap<String, VideoConfig>,
-
-	/// The priority of the video track, relative to other tracks in the broadcast.
-	pub priority: u8,
 
 	/// Render the video at this size in pixels.
 	/// This is separate from the display aspect ratio because it does not require reinitialization.
@@ -49,6 +48,22 @@ pub struct Video {
 	pub flip: Option<bool>,
 }
 
+impl Video {
+	/// Insert a track config, returning an error if the name already exists.
+	pub fn insert(&mut self, name: &str, config: VideoConfig) -> crate::Result<()> {
+		let btree_map::Entry::Vacant(entry) = self.renditions.entry(name.to_string()) else {
+			return Err(crate::Error::Duplicate(name.to_string()));
+		};
+		entry.insert(config);
+		Ok(())
+	}
+
+	/// Remove the track from the catalog and return the configuration if found.
+	pub fn remove(&mut self, name: &str) -> Option<VideoConfig> {
+		self.renditions.remove(name)
+	}
+}
+
 /// Display size for rendering video
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -62,11 +77,18 @@ pub struct Display {
 /// This struct contains all the information needed to initialize a video decoder,
 /// including codec-specific parameters, resolution, and optional metadata.
 ///
-/// Reference: <https://w3c.github.io/webcodecs/#video-decoder-config>
+/// Reference: <https://www.w3.org/TR/webcodecs/#video-decoder-config>
+///
+/// Marked `#[non_exhaustive]` so additional optional fields can be added
+/// without bumping the major version. External callers build a config with
+/// [`VideoConfig::new`] and then assign whichever optional fields they need;
+/// struct-literal construction (with or without `..base`) is not available
+/// outside this crate.
 #[serde_with::serde_as]
 #[serde_with::skip_serializing_none]
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub struct VideoConfig {
 	/// The codec, see the registry for details:
 	/// <https://w3c.github.io/webcodecs/codec_registry.html>
@@ -109,4 +131,44 @@ pub struct VideoConfig {
 	/// Default: true
 	#[serde(default)]
 	pub optimize_for_latency: Option<bool>,
+
+	/// Container format for frame encoding.
+	/// Defaults to "legacy" for backward compatibility.
+	#[serde(default)]
+	pub container: Container,
+
+	/// The maximum jitter before the next frame is emitted in milliseconds.
+	/// The player's jitter buffer should be larger than this value.
+	/// If not provided, the player should assume each frame is flushed immediately.
+	///
+	/// ex:
+	/// - If each frame is flushed immediately, this would be 1000/fps.
+	/// - If there can be up to 3 b-frames in a row, this would be 3 * 1000/fps.
+	/// - If frames are buffered into 2s segments, this would be 2s.
+	#[serde(default)]
+	pub jitter: Option<moq_net::Time>,
+}
+
+impl VideoConfig {
+	/// Construct a config with the required codec set and every optional
+	/// field cleared. `container` defaults to [`Container::default`]. Fields
+	/// are `pub`, so callers set whatever they need by assignment afterwards.
+	///
+	/// This is the only path external crates have to build a `VideoConfig`
+	/// since the type is `#[non_exhaustive]`.
+	pub fn new(codec: impl Into<VideoCodec>) -> Self {
+		Self {
+			codec: codec.into(),
+			description: None,
+			coded_width: None,
+			coded_height: None,
+			display_ratio_width: None,
+			display_ratio_height: None,
+			bitrate: None,
+			framerate: None,
+			optimize_for_latency: None,
+			container: Container::default(),
+			jitter: None,
+		}
+	}
 }

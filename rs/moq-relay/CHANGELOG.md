@@ -7,6 +7,312 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.5](https://github.com/moq-dev/moq/compare/moq-relay-v0.12.4...moq-relay-v0.12.5) - 2026-06-01
+
+### Other
+
+- count connected sessions per auth root for billing ([#1574](https://github.com/moq-dev/moq/pull/1574))
+- simplify cluster-connect-api polling onto the HTTP cache ([#1572](https://github.com/moq-dev/moq/pull/1572))
+- add --cluster-connect-api and split cluster identity from gossip ([#1571](https://github.com/moq-dev/moq/pull/1571))
+- dedup mesh dials with a URL-order tiebreaker ([#1569](https://github.com/moq-dev/moq/pull/1569))
+
+## [0.12.4](https://github.com/moq-dev/moq/compare/moq-relay-v0.12.3...moq-relay-v0.12.4) - 2026-05-30
+
+### Other
+
+- route Android logs to logcat ([#1541](https://github.com/moq-dev/moq/pull/1541))
+
+## [0.12.3](https://github.com/moq-dev/moq/compare/moq-relay-v0.12.1...moq-relay-v0.12.3) - 2026-05-30
+
+### Fixed
+
+- *(changelog)* repair malformed CHANGELOGs blocking release-plz ([#1511](https://github.com/moq-dev/moq/pull/1511))
+
+### Other
+
+- retain entries by liveness instead of a tick retention window ([#1548](https://github.com/moq-dev/moq/pull/1548))
+- *(stats)* take a StatsConfig value type in Stats::new ([#1537](https://github.com/moq-dev/moq/pull/1537))
+- scope mTLS grants to the connection URL path ([#1535](https://github.com/moq-dev/moq/pull/1535))
+- *(stats)* aggregate per-node into a single gzipped broadcast ([#1517](https://github.com/moq-dev/moq/pull/1517))
+- stop downgrading WebSocket clients to moq-lite-02 ([#1523](https://github.com/moq-dev/moq/pull/1523))
+- restore gossip-style cluster discovery via --cluster-mesh ([#1504](https://github.com/moq-dev/moq/pull/1504))
+- advertise QUIC preferred_address in the server config ([#1512](https://github.com/moq-dev/moq/pull/1512))
+- release ([#1493](https://github.com/moq-dev/moq/pull/1493))
+
+## [0.12.1](https://github.com/moq-dev/moq/compare/moq-relay-v0.12.0...moq-relay-v0.12.1) - 2026-05-25
+
+### Other
+
+- release ([#1475](https://github.com/moq-dev/moq/pull/1475))
+- *(stats)* fix TOML stats config silently clobbered by clap update_from ([#1491](https://github.com/moq-dev/moq/pull/1491))
+- *(stats)* allow multi-segment --stats-node values; move cargo-deny to ci ([#1489](https://github.com/moq-dev/moq/pull/1489))
+
+## [0.12.0](https://github.com/moq-dev/moq/compare/moq-relay-v0.11.5...moq-relay-v0.12.0) - 2026-05-23
+
+### Other
+
+- Add stats via MoQ broadcasts ([#1442](https://github.com/moq-dev/moq/pull/1442))
+
+## [0.11.5](https://github.com/moq-dev/moq/compare/moq-relay-v0.11.4...moq-relay-v0.11.5) - 2026-05-21
+
+### Other
+
+- Add audio encoder reconfiguration ([#1362](https://github.com/moq-dev/moq/pull/1362))
+
+## [0.11.4](https://github.com/moq-dev/moq/compare/moq-relay-v0.11.3...moq-relay-v0.11.4) - 2026-05-20
+
+### Other
+
+- rename moq-lite package to moq-net ([#1428](https://github.com/moq-dev/moq/pull/1428))
+
+## [0.11.2](https://github.com/moq-dev/moq/compare/moq-relay-v0.11.1...moq-relay-v0.11.2) - 2026-05-18
+
+### Other
+
+- tolerate Ended for unknown paths ([#1423](https://github.com/moq-dev/moq/pull/1423))
+
+## [0.11.1](https://github.com/moq-dev/moq/compare/moq-relay-v0.11.0...moq-relay-v0.11.1) - 2026-05-18
+
+### Other
+
+- enforce cluster loop detection on announce ([#1420](https://github.com/moq-dev/moq/pull/1420))
+
+## [0.11.0](https://github.com/moq-dev/moq/compare/moq-relay-v0.10.25...moq-relay-v0.11.0) - 2026-05-07
+
+### Fixed
+
+- *(config)* accept single string or array for TOML list fields ([#1377](https://github.com/moq-dev/moq/pull/1377))
+
+### Other
+
+- tighten public API surface and remove deprecated methods ([#1378](https://github.com/moq-dev/moq/pull/1378))
+- Revert moq-lite FETCH/Subscription API changes ([#1372](https://github.com/moq-dev/moq/pull/1372))
+- add fetch_group API + TrackDynamic ([#1357](https://github.com/moq-dev/moq/pull/1357))
+- authenticate HTTPS callers via the cluster mTLS CA ([#1350](https://github.com/moq-dev/moq/pull/1350))
+- relocate jemalloc helper; wire it into moq-boy ([#1360](https://github.com/moq-dev/moq/pull/1360))
+- backport Subscription model API for FETCH readiness ([#1348](https://github.com/moq-dev/moq/pull/1348))
+- add subdomain-based slug routing for customer isolation ([#1343](https://github.com/moq-dev/moq/pull/1343))
+- add OriginConsumer::wait_for_broadcast; deprecate consume_broadcast ([#1340](https://github.com/moq-dev/moq/pull/1340))
+- hop-based clustering ([#1322](https://github.com/moq-dev/moq/pull/1322))
+
+## [0.10.25](https://github.com/moq-dev/moq/compare/moq-relay-v0.10.24...moq-relay-v0.10.25) - 2026-04-20
+
+### Other
+
+- update Cargo.lock dependencies
+
+## [0.10.24](https://github.com/moq-dev/moq/compare/moq-relay-v0.10.23...moq-relay-v0.10.24) - 2026-04-19
+
+### Other
+
+- resolve DNS hostnames in --server-bind ([#1332](https://github.com/moq-dev/moq/pull/1332))
+- Update fly.toml to use the hosted docker image ([#1331](https://github.com/moq-dev/moq/pull/1331))
+- Add README files for Rust crates ([#1284](https://github.com/moq-dev/moq/pull/1284))
+- Clarify group delivery semantics with recv_group and next_group_ordered ([#1324](https://github.com/moq-dev/moq/pull/1324))
+
+## [0.10.23](https://github.com/moq-dev/moq/compare/moq-relay-v0.10.22...moq-relay-v0.10.23) - 2026-04-17
+
+### Other
+
+- update Cargo.lock dependencies
+
+## [0.10.20](https://github.com/moq-dev/moq/compare/moq-relay-v0.10.19...moq-relay-v0.10.20) - 2026-04-15
+
+### Other
+
+- Add mTLS support for moq-relay ([#1299](https://github.com/moq-dev/moq/pull/1299))
+
+## [0.10.19](https://github.com/moq-dev/moq/compare/moq-relay-v0.10.18...moq-relay-v0.10.19) - 2026-04-11
+
+### Other
+
+- update Cargo.lock dependencies
+
+## [0.10.18](https://github.com/moq-dev/moq/compare/moq-relay-v0.10.17...moq-relay-v0.10.18) - 2026-04-09
+
+### Fixed
+
+- *(moq-relay)* allow connecting to parent of token root ([#1247](https://github.com/moq-dev/moq/pull/1247))
+
+### Other
+
+- Fix lychee CI link checker failures ([#1269](https://github.com/moq-dev/moq/pull/1269))
+- Support multiple announce prefixes in MOQ subscriber ([#1249](https://github.com/moq-dev/moq/pull/1249))
+
+## [0.10.16](https://github.com/moq-dev/moq/compare/moq-relay-v0.10.15...moq-relay-v0.10.16) - 2026-04-07
+
+### Other
+
+- Replace guest access with programmatic public access config ([#1233](https://github.com/moq-dev/moq/pull/1233))
+- Switch Docker images from kixelated/ to moqdev/ ([#1234](https://github.com/moq-dev/moq/pull/1234))
+
+## [0.10.15](https://github.com/moq-dev/moq/compare/moq-relay-v0.10.14...moq-relay-v0.10.15) - 2026-04-07
+
+### Fixed
+
+- pass null pointer for jemalloc prof.dump ([#1227](https://github.com/moq-dev/moq/pull/1227))
+
+## [0.10.14](https://github.com/moq-dev/moq/compare/moq-relay-v0.10.12...moq-relay-v0.10.14) - 2026-04-03
+
+### Added
+
+- *(moq-relay)* on-demand key resolution via --auth-keys ([#1188](https://github.com/moq-dev/moq/pull/1188))
+- key-based public access for anonymous subscribe/publish ([#1180](https://github.com/moq-dev/moq/pull/1180))
+
+### Other
+
+- Add --version flag to all CLI tools ([#1203](https://github.com/moq-dev/moq/pull/1203))
+- Rename dev/ to demo/, split moq-boy into rs/ and js/ ([#1204](https://github.com/moq-dev/moq/pull/1204))
+- release ([#1174](https://github.com/moq-dev/moq/pull/1174))
+- Add jemalloc heap profiling to moq-relay ([#1194](https://github.com/moq-dev/moq/pull/1194))
+- Add Markdown linting with remark configuration ([#1183](https://github.com/moq-dev/moq/pull/1183))
+- Add moq-relay release workflow and Nix cache configuration ([#1178](https://github.com/moq-dev/moq/pull/1178))
+- Update dependencies including breaking changes ([#1175](https://github.com/moq-dev/moq/pull/1175))
+- release ([#1168](https://github.com/moq-dev/moq/pull/1168))
+- Drone demo: real-time 2D game with physics ([#1171](https://github.com/moq-dev/moq/pull/1171))
+
+## [0.10.13](https://github.com/moq-dev/moq/compare/moq-relay-v0.10.12...moq-relay-v0.10.13) - 2026-04-03
+
+### Added
+
+- *(moq-relay)* on-demand key resolution via --auth-keys ([#1188](https://github.com/moq-dev/moq/pull/1188))
+- key-based public access for anonymous subscribe/publish ([#1180](https://github.com/moq-dev/moq/pull/1180))
+
+### Other
+
+- Add jemalloc heap profiling to moq-relay ([#1194](https://github.com/moq-dev/moq/pull/1194))
+- Add Markdown linting with remark configuration ([#1183](https://github.com/moq-dev/moq/pull/1183))
+- Add moq-relay release workflow and Nix cache configuration ([#1178](https://github.com/moq-dev/moq/pull/1178))
+- Update dependencies including breaking changes ([#1175](https://github.com/moq-dev/moq/pull/1175))
+- release ([#1168](https://github.com/moq-dev/moq/pull/1168))
+- Drone demo: real-time 2D game with physics ([#1171](https://github.com/moq-dev/moq/pull/1171))
+
+## [0.10.12](https://github.com/moq-dev/moq/compare/moq-relay-v0.10.11...moq-relay-v0.10.12) - 2026-03-26
+
+### Added
+
+- expose moq-relay as library ([#1121](https://github.com/moq-dev/moq/pull/1121))
+
+## [0.10.11](https://github.com/moq-dev/moq/compare/moq-relay-v0.10.10...moq-relay-v0.10.11) - 2026-03-25
+
+### Other
+
+- Revert next_group to recv_group rename ([#1137](https://github.com/moq-dev/moq/pull/1137))
+- Fix non-US relay cluster connectivity and improve monitoring ([#1130](https://github.com/moq-dev/moq/pull/1130))
+- Rename next_group to recv_group for clarity ([#1135](https://github.com/moq-dev/moq/pull/1135))
+
+## [0.10.10](https://github.com/moq-dev/moq/compare/moq-relay-v0.10.9...moq-relay-v0.10.10) - 2026-03-18
+
+### Other
+
+- Bump @moq/qmux to 0.0.4
+
+## [0.10.9](https://github.com/moq-dev/moq/compare/moq-relay-v0.10.8...moq-relay-v0.10.9) - 2026-03-16
+
+### Other
+
+- update Cargo.toml dependencies
+
+## [0.10.8](https://github.com/moq-dev/moq/compare/moq-relay-v0.10.7...moq-relay-v0.10.8) - 2026-03-13
+
+### Other
+
+- Switch to qmux with ALPN negotiation and TLS 1.2 ([#1096](https://github.com/moq-dev/moq/pull/1096))
+- Uniffi async objects ([#1071](https://github.com/moq-dev/moq/pull/1071))
+- Switch from web-transport-ws to qmux ([#1089](https://github.com/moq-dev/moq/pull/1089))
+- Set MSRV to 1.85 (edition 2024) ([#1083](https://github.com/moq-dev/moq/pull/1083))
+- Add WebSocket server support to moq-native ([#1072](https://github.com/moq-dev/moq/pull/1072))
+- Log transport and version in relay connection ([#1052](https://github.com/moq-dev/moq/pull/1052))
+
+## [0.10.7](https://github.com/moq-dev/moq/compare/moq-relay-v0.10.6...moq-relay-v0.10.7) - 2026-03-03
+
+### Other
+
+- release ([#1039](https://github.com/moq-dev/moq/pull/1039))
+- Tweak the API to revert some breaking changes. ([#1036](https://github.com/moq-dev/moq/pull/1036))
+- Replace tokio::sync::watch with custom Producer/Subscriber ([#996](https://github.com/moq-dev/moq/pull/996))
+- Increase MAX_STREAMS default and make it configurable ([#955](https://github.com/moq-dev/moq/pull/955))
+
+## [0.10.6](https://github.com/moq-dev/moq/compare/moq-relay-v0.10.5...moq-relay-v0.10.6) - 2026-02-12
+
+### Other
+
+- (AI) Add support for quiche to moq-native ([#928](https://github.com/moq-dev/moq/pull/928))
+
+## [0.10.5](https://github.com/moq-dev/moq/compare/moq-relay-v0.10.4...moq-relay-v0.10.5) - 2026-02-09
+
+### Other
+
+- Announce cluster nodes via query param instead ([#923](https://github.com/moq-dev/moq/pull/923))
+- Revert ipv4 and fix tls.disable-verify in TOML ([#918](https://github.com/moq-dev/moq/pull/918))
+- Allow a public path in addition to a key. ([#917](https://github.com/moq-dev/moq/pull/917))
+- Make iroh config optional. ([#916](https://github.com/moq-dev/moq/pull/916))
+- Fix origin announcement to use primary connection in cluster ([#911](https://github.com/moq-dev/moq/pull/911))
+
+## [0.10.4](https://github.com/moq-dev/moq/compare/moq-relay-v0.10.3...moq-relay-v0.10.4) - 2026-02-03
+
+### Other
+
+- Add support for multiple groups, and fetching them ([#877](https://github.com/moq-dev/moq/pull/877))
+- Tweak a few small things the AI merge missed. ([#876](https://github.com/moq-dev/moq/pull/876))
+- Remove Produce struct and simplify API ([#875](https://github.com/moq-dev/moq/pull/875))
+- Skip jwt query param when no token configured ([#873](https://github.com/moq-dev/moq/pull/873))
+
+## [0.10.3](https://github.com/moq-dev/moq/compare/moq-relay-v0.10.2...moq-relay-v0.10.3) - 2026-01-24
+
+### Other
+
+- Add a builder pattern for constructing clients/servers ([#862](https://github.com/moq-dev/moq/pull/862))
+- JWK sets ([#809](https://github.com/moq-dev/moq/pull/809))
+- simplify match statements using let-else syntax ([#840](https://github.com/moq-dev/moq/pull/840))
+- upgrade to Rust edition 2024 ([#838](https://github.com/moq-dev/moq/pull/838))
+
+## [0.10.2](https://github.com/moq-dev/moq/compare/moq-relay-v0.10.1...moq-relay-v0.10.2) - 2026-01-10
+
+### Added
+
+- iroh support ([#794](https://github.com/moq-dev/moq/pull/794))
+
+### Other
+
+- support WebSocket fallback for clients ([#812](https://github.com/moq-dev/moq/pull/812))
+- Include sd-notify only on unix ([#807](https://github.com/moq-dev/moq/pull/807))
+- Fix a rustls panic causing the HTTPS server to not work. ([#804](https://github.com/moq-dev/moq/pull/804))
+- Certificate reloading ([#774](https://github.com/moq-dev/moq/pull/774))
+
+## [0.10.1](https://github.com/moq-dev/moq/compare/moq-relay-v0.10.0...moq-relay-v0.10.1) - 2025-12-19
+
+### Other
+
+- update Cargo.lock dependencies
+
+## [0.10.0](https://github.com/moq-dev/moq/compare/moq-relay-v0.9.6...moq-relay-v0.10.0) - 2025-11-26
+
+### Other
+
+- update Cargo.toml dependencies
+
+## [0.9.6](https://github.com/moq-dev/moq/compare/moq-relay-v0.9.5...moq-relay-v0.9.6) - 2025-10-28
+
+### Other
+
+- Fix cluster prefix removal. ([#642](https://github.com/moq-dev/moq/pull/642))
+
+## [0.9.5](https://github.com/moq-dev/moq/compare/moq-relay-v0.9.4...moq-relay-v0.9.5) - 2025-10-25
+
+### Other
+
+- Fix an arg collision with --tls-root and --cluster-root ([#637](https://github.com/moq-dev/moq/pull/637))
+- Also rename back to --cluster-root ([#636](https://github.com/moq-dev/moq/pull/636))
+- Add systemd notify support ([#634](https://github.com/moq-dev/moq/pull/634))
+- rename --cluster-advertise back to --cluster-node ([#633](https://github.com/moq-dev/moq/pull/633))
+
+## [0.9.4](https://github.com/moq-dev/moq/compare/moq-relay-v0.9.3...moq-relay-v0.9.4) - 2025-10-18
+
+### Other
+
+- Use MaybeSend and MaybeSync for WASM compatibility ([#615](https://github.com/moq-dev/moq/pull/615))
+
 ## [0.9.3](https://github.com/moq-dev/moq/compare/moq-relay-v0.9.2...moq-relay-v0.9.3) - 2025-09-05
 
 ### Added
@@ -56,59 +362,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Other
 
 - Fix paths so they're relative to the root, not root + role. ([#508](https://github.com/moq-dev/moq/pull/508))
-# Changelog
-All notable changes to this project will be documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
-## [Unreleased]
-
-## [0.10.2](https://github.com/moq-dev/moq/compare/moq-relay-v0.10.1...moq-relay-v0.10.2) - 2026-01-10
-
-### Added
-
-- iroh support ([#794](https://github.com/moq-dev/moq/pull/794))
-
-### Other
-
-- support WebSocket fallback for clients ([#812](https://github.com/moq-dev/moq/pull/812))
-- Include sd-notify only on unix ([#807](https://github.com/moq-dev/moq/pull/807))
-- Fix a rustls panic causing the HTTPS server to not work. ([#804](https://github.com/moq-dev/moq/pull/804))
-- Certificate reloading ([#774](https://github.com/moq-dev/moq/pull/774))
-
-## [0.10.1](https://github.com/moq-dev/moq/compare/moq-relay-v0.10.0...moq-relay-v0.10.1) - 2025-12-19
-
-### Other
-
-- update Cargo.lock dependencies
-
-## [0.10.0](https://github.com/moq-dev/moq/compare/moq-relay-v0.9.6...moq-relay-v0.10.0) - 2025-11-26
-
-### Other
-
-- update Cargo.toml dependencies
-
-## [0.9.6](https://github.com/moq-dev/moq/compare/moq-relay-v0.9.5...moq-relay-v0.9.6) - 2025-10-28
-
-### Other
-
-- Fix cluster prefix removal. ([#642](https://github.com/moq-dev/moq/pull/642))
-
-## [0.9.5](https://github.com/moq-dev/moq/compare/moq-relay-v0.9.4...moq-relay-v0.9.5) - 2025-10-25
-
-### Other
-
-- Fix an arg collision with --tls-root and --cluster-root ([#637](https://github.com/moq-dev/moq/pull/637))
-- Also rename back to --cluster-root ([#636](https://github.com/moq-dev/moq/pull/636))
-- Add systemd notify support ([#634](https://github.com/moq-dev/moq/pull/634))
-- rename --cluster-advertise back to --cluster-node ([#633](https://github.com/moq-dev/moq/pull/633))
-
-## [0.9.4](https://github.com/moq-dev/moq/compare/moq-relay-v0.9.3...moq-relay-v0.9.4) - 2025-10-18
-
-### Other
-
-- Use MaybeSend and MaybeSync for WASM compatibility ([#615](https://github.com/moq-dev/moq/pull/615))
 
 ## [0.8.3](https://github.com/moq-dev/moq/compare/moq-relay-v0.8.2...moq-relay-v0.8.3) - 2025-07-22
 

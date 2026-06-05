@@ -1,6 +1,6 @@
 [![Documentation](https://docs.rs/hang/badge.svg)](https://docs.rs/hang/)
 [![Crates.io](https://img.shields.io/crates/v/hang.svg)](https://crates.io/crates/hang)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](../../LICENSE-MIT)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/moq-dev/moq/blob/main/LICENSE-MIT)
 
 # hang
 
@@ -14,14 +14,16 @@ A media library built on top of `moq-lite` for streaming audio and video.
 - **Frame**: A timestamp and a codec payload pair.
 
 ## Supported Codecs
+
 We most of the implement the [WebCodecs specification](https://www.w3.org/TR/webcodecs/#video-decoder-config).
 
 - **Video:** H.264, H.265, VP8, VP9, AV1
 - **Audio:** AAC, Opus
 
 ## CMAF Import
-There's also a `cmaf` module that can import fMP4/CMAF files into a hang broadcast.
-It's crude and doesn't support all features, but it's a good starting point to ingest existing content.
+
+For importing fMP4/CMAF/HLS files, see the `moq-mux` crate.
 
 ## Examples
+
 - [Publishing a video track](examples/video.rs)

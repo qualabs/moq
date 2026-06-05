@@ -1,5 +1,3 @@
-import { dequal } from "dequal";
-
 export type Dispose = () => void;
 
 type Subscriber<T> = (value: T) => void;
@@ -23,6 +21,7 @@ export interface Getter<T> {
 
 export interface Setter<T> {
 	set(value: T | ((prev: T) => T)): void;
+	update(fn: (prev: T) => T): void;
 }
 
 export class Signal<T> implements Getter<T>, Setter<T> {
@@ -30,6 +29,12 @@ export class Signal<T> implements Getter<T>, Setter<T> {
 
 	#subscribers: Set<Subscriber<T>> = new Set();
 	#changed: Set<Subscriber<T>> = new Set();
+
+	// Microtask coalescing state
+	#pending = false;
+	#oldValue: T | undefined;
+	#hasCapturedOldValue = false;
+	#forceNotify = false;
 
 	// Brand to identify this as a Signal across package instances
 	readonly [SIGNAL_BRAND] = true;
@@ -58,49 +63,67 @@ export class Signal<T> implements Getter<T>, Setter<T> {
 	// Set the current value, by default notifying subscribers if the value is different.
 	// If notify is undefined, we'll check if the value has changed after the microtask.
 	set(value: T, notify?: boolean): void {
-		const old = this.#value;
+		// Capture old value before the first set in this microtask.
+		if (!this.#hasCapturedOldValue) {
+			this.#oldValue = this.#value;
+			this.#hasCapturedOldValue = true;
+		}
+
 		this.#value = value;
 
 		// If notify is false, don't notify.
 		if (notify === false) return;
 
-		// Don't even queue a microtask if the value is the EXACT same.
-		// We don't use dequal here because we don't want to run it twice, only when it matters.
-		if (notify === undefined && old === this.#value) return;
+		if (notify === true) this.#forceNotify = true;
 
 		// If there are no subscribers, don't queue a microtask.
-		if (this.#subscribers.size === 0 && this.#changed.size === 0) return;
+		// Reset all pending state since no flush will occur to clear it.
+		if (this.#subscribers.size === 0 && this.#changed.size === 0) {
+			this.#hasCapturedOldValue = false;
+			this.#oldValue = undefined;
+			this.#forceNotify = false;
+			return;
+		}
 
-		const subscribers = this.#subscribers;
+		// Coalesce multiple set() calls into a single microtask.
+		if (this.#pending) return;
+		this.#pending = true;
+
+		queueMicrotask(() => this.#flush());
+	}
+
+	#flush(): void {
+		this.#pending = false;
+		this.#hasCapturedOldValue = false;
+		const old = this.#oldValue;
+		this.#oldValue = undefined;
+
+		const force = this.#forceNotify;
+		this.#forceNotify = false;
+
+		// Check if the net change is zero (value returned to what it was before).
+		// Use === for class instances, dequal for plain objects/primitives.
+		if (!force && isEqual(old as T, this.#value)) return;
+
+		const value = this.#value;
 		const changed = this.#changed;
 		this.#changed = new Set();
 
-		queueMicrotask(() => {
-			// After the microtask, check if the value has changed if we didn't explicitly notify.
-			if (notify === undefined && dequal(old, this.#value)) {
-				// No change, add back the changed subscribers.
-				for (const fn of changed) {
-					this.#changed.add(fn);
-				}
-				return;
+		for (const fn of this.#subscribers) {
+			try {
+				fn(value);
+			} catch (error) {
+				console.error("signal subscriber error", error);
 			}
+		}
 
-			for (const fn of subscribers) {
-				try {
-					fn(value);
-				} catch (error) {
-					console.error("signal subscriber error", error);
-				}
+		for (const fn of changed) {
+			try {
+				fn(value);
+			} catch (error) {
+				console.error("signal changed error", error);
 			}
-
-			for (const fn of changed) {
-				try {
-					fn(value);
-				} catch (error) {
-					console.error("signal changed error", error);
-				}
-			}
-		});
+		}
 	}
 
 	// Mutate the current value and notify subscribers unless notify is false.
@@ -132,6 +155,13 @@ export class Signal<T> implements Getter<T>, Setter<T> {
 		return () => this.#changed.delete(fn);
 	}
 
+	// Resolve with the next value, once the signal changes.
+	next(): Promise<T> {
+		return new Promise<T>((resolve) => {
+			this.changed(resolve);
+		});
+	}
+
 	// Receive a notification when the value changes AND with the initial value.
 	watch(fn: Subscriber<T>): Dispose {
 		const dispose = this.subscribe(fn);
@@ -156,6 +186,11 @@ export class Signal<T> implements Getter<T>, Setter<T> {
 }
 
 type SetterType<S> = S extends Setter<infer T> ? T : never;
+type GetterType<G> = G extends Getter<infer T> ? T : never;
+
+// Excludes common falsy values from a type
+type Falsy = false | 0 | "" | null | undefined;
+type Truthy<T> = Exclude<T, Falsy>;
 
 // TODO Make this a single instance of an Effect, so close() can work correctly from async code.
 export class Effect {
@@ -172,11 +207,10 @@ export class Effect {
 	#stack?: string;
 	#scheduled = false;
 
-	#stop!: () => void;
-	#stopped: Promise<void>;
+	#stopped: PromiseWithResolvers<void>;
+	#closed: PromiseWithResolvers<void>;
 
-	#close!: () => void;
-	#closed: Promise<void>;
+	#abort: AbortController = new AbortController();
 
 	// If a function is provided, it will be run with the effect as an argument.
 	constructor(fn?: (effect: Effect) => void) {
@@ -191,13 +225,8 @@ export class Effect {
 			this.#stack = new Error().stack;
 		}
 
-		this.#stopped = new Promise((resolve) => {
-			this.#stop = resolve;
-		});
-
-		this.#closed = new Promise((resolve) => {
-			this.#close = resolve;
-		});
+		this.#stopped = Promise.withResolvers();
+		this.#closed = Promise.withResolvers();
 
 		if (fn) {
 			this.#schedule();
@@ -219,10 +248,11 @@ export class Effect {
 	async #run(): Promise<void> {
 		if (this.#dispose === undefined) return; // closed, no error because this is a microtask
 
-		this.#stop();
-		this.#stopped = new Promise((resolve) => {
-			this.#stop = resolve;
-		});
+		this.#stopped.resolve();
+		this.#abort.abort();
+		this.#abort = new AbortController();
+
+		this.#stopped = Promise.withResolvers();
 
 		// Unsubscribe from all signals.
 		for (const unwatch of this.#unwatch) unwatch();
@@ -265,6 +295,16 @@ export class Effect {
 
 		if (this.#fn) {
 			this.#fn(this);
+
+			if (
+				DEV &&
+				this.#dispose !== undefined &&
+				this.#unwatch.length === 0 &&
+				this.#dispose.length === 0 &&
+				this.#async.length === 0
+			) {
+				console.warn("Effect did not subscribe to any signals; it will never rerun.", this.#stack);
+			}
 		}
 	}
 
@@ -401,7 +441,7 @@ export class Effect {
 	}
 
 	// Create a nested effect that can be rerun independently.
-	effect(fn: (effect: Effect) => void) {
+	run(fn: (effect: Effect) => void) {
 		if (this.#dispose === undefined) {
 			if (DEV) {
 				console.warn("Effect.nested called when closed, ignoring");
@@ -411,6 +451,24 @@ export class Effect {
 
 		const effect = new Effect(fn);
 		this.#dispose.push(() => effect.close());
+	}
+
+	// Backwards compatibility with the old name.
+	effect(fn: (effect: Effect) => void) {
+		return this.run(fn);
+	}
+
+	// Get the values of multiple signals, returning undefined if any are falsy.
+	getAll<S extends readonly Getter<unknown>[]>(
+		signals: [...S],
+	): { [K in keyof S]: Truthy<GetterType<S[K]>> } | undefined {
+		const values: unknown[] = [];
+		for (const signal of signals) {
+			const value = this.get(signal);
+			if (!value) return undefined;
+			values.push(value);
+		}
+		return values as { [K in keyof S]: Truthy<GetterType<S[K]>> };
 	}
 
 	// A helper to call a function when a signal changes.
@@ -423,7 +481,7 @@ export class Effect {
 			return;
 		}
 
-		this.effect((effect) => {
+		this.run((effect) => {
 			const value = effect.get(signal);
 			fn(value);
 		});
@@ -503,13 +561,15 @@ export class Effect {
 			return;
 		}
 
-		target.addEventListener(type, listener, options);
-		this.cleanup(() => target.removeEventListener(type, listener, options));
-	}
+		// Merge the abort signal so the listener is auto-removed on rerun/close.
+		const signal =
+			typeof options !== "boolean" && options?.signal
+				? AbortSignal.any([this.#abort.signal, options.signal])
+				: this.#abort.signal;
+		const merged: AddEventListenerOptions =
+			typeof options === "boolean" ? { capture: options, signal } : { ...options, signal };
 
-	// Reschedule the effect to run again.
-	reload() {
-		this.#schedule();
+		target.addEventListener(type, listener, merged);
 	}
 
 	// Register a cleanup function.
@@ -531,8 +591,9 @@ export class Effect {
 			return;
 		}
 
-		this.#close();
-		this.#stop();
+		this.#closed.resolve();
+		this.#stopped.resolve();
+		this.#abort.abort();
 
 		for (const fn of this.#dispose) fn();
 		this.#dispose = undefined;
@@ -548,10 +609,42 @@ export class Effect {
 	}
 
 	get closed(): Promise<void> {
-		return this.#closed;
+		return this.#closed.promise;
 	}
 
 	get cancel(): Promise<void> {
-		return this.#stopped;
+		return this.#stopped.promise;
 	}
+
+	get abort(): AbortSignal {
+		return this.#abort.signal;
+	}
+
+	proxy<T>(dst: Setter<T>, src: Getter<T>): void {
+		this.subscribe(src, (value) => dst.update(() => value));
+	}
+}
+
+// Deep equality for plain objects/arrays, === for class instances and primitives.
+// Class instances have identity semantics (e.g. two different Broadcast instances are never equal).
+function isEqual(a: unknown, b: unknown): boolean {
+	if (a === b) return true;
+	if (a === null || b === null || typeof a !== "object" || typeof b !== "object") return false;
+
+	const protoA = Object.getPrototypeOf(a);
+	const protoB = Object.getPrototypeOf(b);
+
+	// Both must be plain objects or both arrays to deep-compare.
+	if (protoA !== protoB) return false;
+	if (protoA !== Object.prototype && protoA !== Array.prototype) return false;
+
+	const keysA = Object.keys(a as Record<string, unknown>);
+	const keysB = Object.keys(b as Record<string, unknown>);
+	if (keysA.length !== keysB.length) return false;
+
+	for (const key of keysA) {
+		if (!isEqual((a as Record<string, unknown>)[key], (b as Record<string, unknown>)[key])) return false;
+	}
+
+	return true;
 }

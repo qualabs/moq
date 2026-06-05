@@ -142,6 +142,12 @@ in
       default = "/var/lib/moq-relay";
       description = "State directory for keys and runtime data";
     };
+
+    heapDumpPrefix = lib.mkOption {
+      type = lib.types.str;
+      default = "/tmp/moq-relay.heap";
+      description = "Path prefix for jemalloc heap profile dumps (triggered via kill -USR1)";
+    };
   };
 
   config = lib.mkIf cfg.enable {
@@ -165,7 +171,7 @@ in
         # Generate auth key if needed
         ${lib.optionalString (cfg.auth.enable && cfg.auth.keyFile == null) ''
           if [ ! -f "${cfg.stateDir}/root.jwk" ]; then
-            ${pkgs.moq-token}/bin/moq-token --key "${cfg.stateDir}/root.jwk" generate
+            ${pkgs.moq-token-cli}/bin/moq-token-cli --key "${cfg.stateDir}/root.jwk" generate
             chown ${cfg.user}:${cfg.group} "${cfg.stateDir}/root.jwk"
             chmod 600 "${cfg.stateDir}/root.jwk"
           fi
@@ -174,12 +180,17 @@ in
         # Generate cluster token for leaf nodes
         ${lib.optionalString
           (cfg.cluster.mode == "leaf" && cfg.auth.enable && cfg.cluster.tokenFile == null)
-          ''
-            ${pkgs.moq-token}/bin/moq-token --key "${cfg.stateDir}/root.jwk" sign \
-              --subscribe "" --publish "" --cluster \
-              > "${cfg.stateDir}/cluster.jwt"
-            chown ${cfg.user}:${cfg.group} "${cfg.stateDir}/cluster.jwt"
-          ''
+          (
+            let
+              keyPath = if cfg.auth.keyFile != null then cfg.auth.keyFile else "${cfg.stateDir}/root.jwk";
+            in
+            ''
+              ${pkgs.moq-token-cli}/bin/moq-token-cli --key "${keyPath}" sign \
+                --subscribe "" --publish "" --cluster \
+                > "${cfg.stateDir}/cluster.jwt"
+              chown ${cfg.user}:${cfg.group} "${cfg.stateDir}/cluster.jwt"
+            ''
+          )
         }
       '';
 
@@ -205,6 +216,9 @@ in
       };
 
       environment = {
+        # Enable jemalloc heap profiling; dump with `kill -USR1 <pid>`
+        MALLOC_CONF = "prof:true,prof_active:true,prof_prefix:${cfg.heapDumpPrefix}";
+
         MOQ_LOG_LEVEL = lib.mkDefault cfg.logLevel;
 
         # Server configuration

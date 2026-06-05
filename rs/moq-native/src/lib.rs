@@ -8,21 +8,66 @@
 //!
 //! See [`Client`] for connecting to relays and [`Server`] for accepting connections.
 
+/// Default maximum number of concurrent QUIC streams (bidi and uni) per connection.
+pub(crate) const DEFAULT_MAX_STREAMS: u64 = 1024;
+
 mod client;
 mod crypto;
+#[cfg(feature = "jemalloc")]
+pub mod jemalloc;
 mod log;
+#[cfg(feature = "noq")]
+mod noq;
+#[cfg(feature = "quinn")]
+mod quinn;
+mod reconnect;
 mod server;
+#[cfg(any(feature = "noq", feature = "quinn"))]
+mod tls;
+mod util;
+#[cfg(feature = "websocket")]
+mod websocket;
 
 pub use client::*;
 pub use log::*;
+pub use reconnect::*;
 pub use server::*;
+#[cfg(feature = "websocket")]
+pub use websocket::*;
 
 // Re-export these crates.
-pub use moq_lite;
+pub use moq_net;
 pub use rustls;
+
+#[cfg(feature = "noq")]
+pub use web_transport_noq;
+#[cfg(feature = "quinn")]
 pub use web_transport_quinn;
+
+#[cfg(feature = "quiche")]
+mod quiche;
+#[cfg(feature = "quiche")]
+pub use web_transport_quiche;
 
 #[cfg(feature = "iroh")]
 mod iroh;
 #[cfg(feature = "iroh")]
 pub use iroh::*;
+
+/// The QUIC backend to use for connections.
+#[derive(Clone, Debug, clap::ValueEnum, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "lowercase")]
+#[non_exhaustive]
+pub enum QuicBackend {
+	/// [web-transport-quinn](https://crates.io/crates/web-transport-quinn)
+	#[cfg(feature = "quinn")]
+	Quinn,
+
+	/// [web-transport-quiche](https://crates.io/crates/web-transport-quiche)
+	#[cfg(feature = "quiche")]
+	Quiche,
+
+	/// [web-transport-noq](https://crates.io/crates/web-transport-noq)
+	#[cfg(feature = "noq")]
+	Noq,
+}

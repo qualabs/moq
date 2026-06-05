@@ -1,20 +1,12 @@
 use crate::crypto;
+use crate::{Backoff, QuicBackend, Reconnect};
 use anyhow::Context;
-use rustls::RootCertStore;
-use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
-use std::collections::HashSet;
 use std::path::PathBuf;
-use std::sync::{LazyLock, Mutex};
-use std::{fs, io, net, sync::Arc, time};
+use std::{net, sync::Arc};
 use url::Url;
-#[cfg(feature = "iroh")]
-use web_transport_iroh::iroh;
-use web_transport_ws::{tokio_tungstenite, tungstenite};
-
-// Track servers (hostname:port) where WebSocket won the race, so we won't give QUIC a headstart next time
-static WEBSOCKET_WON: LazyLock<Mutex<HashSet<(String, u16)>>> = LazyLock::new(|| Mutex::new(HashSet::new()));
 
 /// TLS configuration for the client.
+#[serde_with::serde_as]
 #[derive(Clone, Default, Debug, clap::Args, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 #[non_exhaustive]
@@ -22,10 +14,28 @@ pub struct ClientTls {
 	/// Use the TLS root at this path, encoded as PEM.
 	///
 	/// This value can be provided multiple times for multiple roots.
-	/// If this is empty, system roots will be used instead
+	/// If this is empty, system roots will be used instead.
+	/// In config files, accepts either a single string or a TOML array.
 	#[serde(skip_serializing_if = "Vec::is_empty")]
 	#[arg(id = "tls-root", long = "tls-root", env = "MOQ_CLIENT_TLS_ROOT")]
+	#[serde_as(as = "serde_with::OneOrMany<_>")]
 	pub root: Vec<PathBuf>,
+
+	/// PEM file containing the client certificate chain for mTLS.
+	///
+	/// Only certificates are extracted; any private keys in the file are ignored.
+	/// Must be paired with `--client-tls-key`.
+	#[serde(skip_serializing_if = "Option::is_none")]
+	#[arg(id = "client-tls-cert", long = "client-tls-cert", env = "MOQ_CLIENT_TLS_CERT")]
+	pub cert: Option<PathBuf>,
+
+	/// PEM file containing the private key for mTLS.
+	///
+	/// Only the private key is extracted; any certificates in the file are ignored.
+	/// Must be paired with `--client-tls-cert`.
+	#[serde(skip_serializing_if = "Option::is_none")]
+	#[arg(id = "client-tls-key", long = "client-tls-key", env = "MOQ_CLIENT_TLS_KEY")]
+	pub key: Option<PathBuf>,
 
 	/// Danger: Disable TLS certificate verification.
 	///
@@ -35,36 +45,12 @@ pub struct ClientTls {
 		id = "tls-disable-verify",
 		long = "tls-disable-verify",
 		env = "MOQ_CLIENT_TLS_DISABLE_VERIFY",
-		action = clap::ArgAction::SetTrue
+		default_missing_value = "true",
+		num_args = 0..=1,
+		require_equals = true,
+		value_parser = clap::value_parser!(bool),
 	)]
 	pub disable_verify: Option<bool>,
-}
-
-/// WebSocket configuration for the client.
-#[derive(Clone, Debug, clap::Args, serde::Serialize, serde::Deserialize)]
-#[serde(default, deny_unknown_fields)]
-#[non_exhaustive]
-pub struct ClientWebSocket {
-	/// Delay in milliseconds before attempting WebSocket fallback (default: 200)
-	/// If WebSocket won the previous race for a given server, this will be 0.
-	#[arg(
-		id = "websocket-delay",
-		long = "websocket-delay",
-		env = "MOQ_CLIENT_WEBSOCKET_DELAY",
-		default_value = "200ms",
-		value_parser = humantime::parse_duration,
-	)]
-	#[serde(with = "humantime_serde")]
-	#[serde(skip_serializing_if = "Option::is_none")]
-	pub delay: Option<time::Duration>,
-}
-
-impl Default for ClientWebSocket {
-	fn default() -> Self {
-		Self {
-			delay: Some(time::Duration::from_millis(200)),
-		}
-	}
 }
 
 /// Configuration for the MoQ client.
@@ -81,18 +67,126 @@ pub struct ClientConfig {
 	)]
 	pub bind: net::SocketAddr,
 
+	/// The QUIC backend to use.
+	/// Auto-detected from compiled features if not specified.
+	#[arg(id = "client-backend", long = "client-backend", env = "MOQ_CLIENT_BACKEND")]
+	pub backend: Option<QuicBackend>,
+
+	/// Maximum number of concurrent QUIC streams per connection (both bidi and uni).
+	#[serde(skip_serializing_if = "Option::is_none")]
+	#[arg(
+		id = "client-max-streams",
+		long = "client-max-streams",
+		env = "MOQ_CLIENT_MAX_STREAMS"
+	)]
+	pub max_streams: Option<u64>,
+
+	/// Restrict the client to specific MoQ protocol version(s).
+	///
+	/// By default, the client offers all supported versions and lets the server choose.
+	/// Use this to force a specific version, e.g. `--client-version moq-lite-02`.
+	/// Can be specified multiple times to offer a subset of versions.
+	///
+	/// Valid values: moq-lite-01, moq-lite-02, moq-lite-03, moq-transport-14, moq-transport-15, moq-transport-16, moq-transport-17
+	#[serde(default, skip_serializing_if = "Vec::is_empty")]
+	#[arg(id = "client-version", long = "client-version", env = "MOQ_CLIENT_VERSION")]
+	pub version: Vec<moq_net::Version>,
+
 	#[command(flatten)]
 	#[serde(default)]
 	pub tls: ClientTls,
 
 	#[command(flatten)]
 	#[serde(default)]
-	pub websocket: ClientWebSocket,
+	pub backoff: Backoff,
+
+	#[cfg(feature = "websocket")]
+	#[command(flatten)]
+	#[serde(default)]
+	pub websocket: super::ClientWebSocket,
+}
+
+impl ClientTls {
+	/// Build a [`rustls::ClientConfig`] from this configuration.
+	///
+	/// Loads the configured roots (or the platform's native roots if none),
+	/// optionally attaches a client identity for mTLS, and disables server
+	/// certificate verification when `disable_verify` is set.
+	pub fn build(&self) -> anyhow::Result<rustls::ClientConfig> {
+		use rustls::pki_types::CertificateDer;
+		use rustls::pki_types::PrivateKeyDer;
+		use rustls::pki_types::pem::PemObject;
+
+		let provider = crypto::provider();
+
+		let mut roots = rustls::RootCertStore::empty();
+		if self.root.is_empty() {
+			let native = rustls_native_certs::load_native_certs();
+			for err in native.errors {
+				tracing::warn!(%err, "failed to load root cert");
+			}
+			for cert in native.certs {
+				roots.add(cert).context("failed to add root cert")?;
+			}
+		} else {
+			for root in &self.root {
+				let file = std::fs::File::open(root).context("failed to open root cert file")?;
+				let mut reader = std::io::BufReader::new(file);
+				let certs: Vec<CertificateDer<'static>> = CertificateDer::pem_reader_iter(&mut reader)
+					.collect::<Result<_, _>>()
+					.context("failed to read root cert")?;
+				anyhow::ensure!(!certs.is_empty(), "no roots found in {}", root.display());
+				for cert in certs {
+					roots.add(cert).context("failed to add root cert")?;
+				}
+			}
+		}
+
+		// Allow TLS 1.2 in addition to 1.3 for WebSocket compatibility.
+		// QUIC always negotiates TLS 1.3 regardless of this setting.
+		let builder = rustls::ClientConfig::builder_with_provider(provider.clone())
+			.with_protocol_versions(&[&rustls::version::TLS13, &rustls::version::TLS12])?
+			.with_root_certificates(roots);
+
+		let mut tls = match (&self.cert, &self.key) {
+			(Some(cert_path), Some(key_path)) => {
+				let cert_pem = std::fs::read(cert_path).context("failed to read client certificate")?;
+				let chain: Vec<CertificateDer<'static>> = CertificateDer::pem_slice_iter(&cert_pem)
+					.collect::<Result<_, _>>()
+					.context("failed to parse client certificate")?;
+				anyhow::ensure!(!chain.is_empty(), "no certificates found in client certificate");
+				let key_pem = std::fs::read(key_path).context("failed to read client key")?;
+				let key = PrivateKeyDer::from_pem_slice(&key_pem).context("failed to parse client key")?;
+				builder
+					.with_client_auth_cert(chain, key)
+					.context("failed to configure client certificate")?
+			}
+			(None, None) => builder.with_no_client_auth(),
+			_ => anyhow::bail!("both --client-tls-cert and --client-tls-key must be provided"),
+		};
+
+		if self.disable_verify.unwrap_or_default() {
+			tracing::warn!("TLS server certificate verification is disabled; A man-in-the-middle attack is possible.");
+			let noop = NoCertificateVerification(provider);
+			tls.dangerous().set_certificate_verifier(Arc::new(noop));
+		}
+
+		Ok(tls)
+	}
 }
 
 impl ClientConfig {
 	pub fn init(self) -> anyhow::Result<Client> {
 		Client::new(self)
+	}
+
+	/// Returns the configured versions, defaulting to all if none specified.
+	pub fn versions(&self) -> moq_net::Versions {
+		if self.version.is_empty() {
+			moq_net::Versions::all()
+		} else {
+			moq_net::Versions::from(self.version.clone())
+		}
 	}
 }
 
@@ -100,8 +194,13 @@ impl Default for ClientConfig {
 	fn default() -> Self {
 		Self {
 			bind: "[::]:0".parse().unwrap(),
+			backend: None,
+			max_streams: None,
+			version: Vec::new(),
 			tls: ClientTls::default(),
-			websocket: ClientWebSocket::default(),
+			backoff: Backoff::default(),
+			#[cfg(feature = "websocket")]
+			websocket: super::ClientWebSocket::default(),
 		}
 	}
 }
@@ -111,321 +210,279 @@ impl Default for ClientConfig {
 /// Create via [`ClientConfig::init`] or [`Client::new`].
 #[derive(Clone)]
 pub struct Client {
-	pub quic: quinn::Endpoint,
-	pub tls: rustls::ClientConfig,
-	pub transport: Arc<quinn::TransportConfig>,
-	pub websocket_delay: Option<time::Duration>,
+	moq: moq_net::Client,
+	versions: moq_net::Versions,
+	backoff: Backoff,
+	#[cfg(feature = "websocket")]
+	websocket: super::ClientWebSocket,
+	tls: rustls::ClientConfig,
+	#[cfg(feature = "noq")]
+	noq: Option<crate::noq::NoqClient>,
+	#[cfg(feature = "quinn")]
+	quinn: Option<crate::quinn::QuinnClient>,
+	#[cfg(feature = "quiche")]
+	quiche: Option<crate::quiche::QuicheClient>,
 	#[cfg(feature = "iroh")]
-	pub iroh: Option<iroh::Endpoint>,
+	iroh: Option<web_transport_iroh::iroh::Endpoint>,
+	#[cfg(feature = "iroh")]
+	iroh_addrs: Vec<std::net::SocketAddr>,
 }
 
 impl Client {
+	#[cfg(not(any(feature = "noq", feature = "quinn", feature = "quiche", feature = "websocket")))]
+	pub fn new(_config: ClientConfig) -> anyhow::Result<Self> {
+		anyhow::bail!("no QUIC or WebSocket backend compiled; enable noq, quinn, quiche, or websocket feature");
+	}
+
+	/// Create a new client
+	#[cfg(any(feature = "noq", feature = "quinn", feature = "quiche", feature = "websocket"))]
 	pub fn new(config: ClientConfig) -> anyhow::Result<Self> {
-		let provider = crypto::provider();
-
-		// Create a list of acceptable root certificates.
-		let mut roots = RootCertStore::empty();
-
-		if config.tls.root.is_empty() {
-			let native = rustls_native_certs::load_native_certs();
-
-			// Log any errors that occurred while loading the native root certificates.
-			for err in native.errors {
-				tracing::warn!(%err, "failed to load root cert");
+		#[cfg(any(feature = "noq", feature = "quinn", feature = "quiche"))]
+		let backend = config.backend.clone().unwrap_or({
+			#[cfg(feature = "quinn")]
+			{
+				QuicBackend::Quinn
 			}
-
-			// Add the platform's native root certificates.
-			for cert in native.certs {
-				roots.add(cert).context("failed to add root cert")?;
+			#[cfg(all(feature = "noq", not(feature = "quinn")))]
+			{
+				QuicBackend::Noq
 			}
-		} else {
-			// Add the specified root certificates.
-			for root in &config.tls.root {
-				let root = fs::File::open(root).context("failed to open root cert file")?;
-				let mut root = io::BufReader::new(root);
-
-				let root = rustls_pemfile::certs(&mut root)
-					.next()
-					.context("no roots found")?
-					.context("failed to read root cert")?;
-
-				roots.add(root).context("failed to add root cert")?;
+			#[cfg(all(feature = "quiche", not(feature = "quinn"), not(feature = "noq")))]
+			{
+				QuicBackend::Quiche
 			}
-		}
+			#[cfg(all(not(feature = "quiche"), not(feature = "quinn"), not(feature = "noq")))]
+			panic!("no QUIC backend compiled; enable noq, quinn, or quiche feature");
+		});
 
-		// Create the TLS configuration we'll use as a client (relay -> relay)
-		let mut tls = rustls::ClientConfig::builder_with_provider(provider.clone())
-			.with_protocol_versions(&[&rustls::version::TLS13])?
-			.with_root_certificates(roots)
-			.with_no_client_auth();
+		let tls = config.tls.build()?;
 
-		// Allow disabling TLS verification altogether.
-		if config.tls.disable_verify.unwrap_or_default() {
-			tracing::warn!("TLS server certificate verification is disabled; A man-in-the-middle attack is possible.");
+		#[cfg(feature = "noq")]
+		#[allow(unreachable_patterns)]
+		let noq = match backend {
+			QuicBackend::Noq => Some(crate::noq::NoqClient::new(&config)?),
+			_ => None,
+		};
 
-			let noop = NoCertificateVerification(provider.clone());
-			tls.dangerous().set_certificate_verifier(Arc::new(noop));
-		}
+		#[cfg(feature = "quinn")]
+		#[allow(unreachable_patterns)]
+		let quinn = match backend {
+			QuicBackend::Quinn => Some(crate::quinn::QuinnClient::new(&config)?),
+			_ => None,
+		};
 
-		let socket = std::net::UdpSocket::bind(config.bind).context("failed to bind UDP socket")?;
+		#[cfg(feature = "quiche")]
+		let quiche = match backend {
+			QuicBackend::Quiche => Some(crate::quiche::QuicheClient::new(&config)?),
+			_ => None,
+		};
 
-		// TODO Validate the BBR implementation before enabling it
-		let mut transport = quinn::TransportConfig::default();
-		transport.max_idle_timeout(Some(time::Duration::from_secs(10).try_into().unwrap()));
-		transport.keep_alive_interval(Some(time::Duration::from_secs(4)));
-		//transport.congestion_controller_factory(Arc::new(quinn::congestion::BbrConfig::default()));
-		transport.mtu_discovery_config(None); // Disable MTU discovery
-		let transport = Arc::new(transport);
-
-		// There's a bit more boilerplate to make a generic endpoint.
-		let runtime = quinn::default_runtime().context("no async runtime")?;
-		let endpoint_config = quinn::EndpointConfig::default();
-
-		// Create the generic QUIC endpoint.
-		let quic =
-			quinn::Endpoint::new(endpoint_config, None, socket, runtime).context("failed to create QUIC endpoint")?;
-
+		let versions = config.versions();
 		Ok(Self {
-			quic,
+			moq: moq_net::Client::new().with_versions(versions.clone()),
+			versions,
+			backoff: config.backoff,
+			#[cfg(feature = "websocket")]
+			websocket: config.websocket,
 			tls,
-			transport,
-			websocket_delay: config.websocket.delay,
+			#[cfg(feature = "noq")]
+			noq,
+			#[cfg(feature = "quinn")]
+			quinn,
+			#[cfg(feature = "quiche")]
+			quiche,
 			#[cfg(feature = "iroh")]
 			iroh: None,
+			#[cfg(feature = "iroh")]
+			iroh_addrs: Vec::new(),
 		})
 	}
 
 	#[cfg(feature = "iroh")]
-	pub fn with_iroh(&mut self, iroh: Option<iroh::Endpoint>) -> &mut Self {
+	pub fn with_iroh(mut self, iroh: Option<web_transport_iroh::iroh::Endpoint>) -> Self {
 		self.iroh = iroh;
 		self
 	}
 
-	/// Establish a WebTransport/QUIC connection followed by a MoQ handshake.
-	pub async fn connect(
-		&self,
-		url: Url,
-		publish: impl Into<Option<moq_lite::OriginConsumer>>,
-		subscribe: impl Into<Option<moq_lite::OriginProducer>>,
-	) -> anyhow::Result<moq_lite::Session> {
-		#[cfg(feature = "iroh")]
-		if crate::iroh::is_iroh_url(&url) {
-			let session = self.connect_iroh(url).await?;
-			let session = moq_lite::Session::connect(session, publish, subscribe).await?;
-			return Ok(session);
-		}
-
-		let session = self.connect_quic(url).await?;
-		let session = moq_lite::Session::connect(session, publish, subscribe).await?;
-		Ok(session)
-	}
-
-	/// Establish a WebTransport/QUIC connection or a WebSocket connection, whichever is available first.
+	/// Set direct IP addresses for connecting to iroh peers.
 	///
-	/// Establishes a MoQ handshake on the winning transport.
-	pub async fn connect_with_fallback(
-		&self,
-		url: Url,
-		publish: impl Into<Option<moq_lite::OriginConsumer>>,
-		subscribe: impl Into<Option<moq_lite::OriginProducer>>,
-	) -> anyhow::Result<moq_lite::Session> {
+	/// This is useful when the peer's IP addresses are known ahead of time,
+	/// bypassing the need for peer discovery (e.g. in tests or local networks).
+	#[cfg(feature = "iroh")]
+	pub fn with_iroh_addrs(mut self, addrs: Vec<std::net::SocketAddr>) -> Self {
+		self.iroh_addrs = addrs;
+		self
+	}
+
+	pub fn with_publish(mut self, publish: impl Into<Option<moq_net::OriginConsumer>>) -> Self {
+		self.moq = self.moq.with_publish(publish);
+		self
+	}
+
+	pub fn with_consume(mut self, consume: impl Into<Option<moq_net::OriginProducer>>) -> Self {
+		self.moq = self.moq.with_consume(consume);
+		self
+	}
+
+	/// Attach a tier-scoped [`moq_net::StatsHandle`] to all sessions opened by this client.
+	pub fn with_stats(mut self, stats: moq_net::StatsHandle) -> Self {
+		self.moq = self.moq.with_stats(stats);
+		self
+	}
+
+	/// Start a background reconnect loop that connects to the given URL,
+	/// waits for the session to close, then reconnects with exponential backoff.
+	///
+	/// Returns a [`Reconnect`] handle; drop the last handle to stop the loop.
+	pub fn reconnect(&self, url: Url) -> Reconnect {
+		Reconnect::new(self.clone(), url, self.backoff.clone())
+	}
+
+	#[cfg(not(any(
+		feature = "noq",
+		feature = "quinn",
+		feature = "quiche",
+		feature = "iroh",
+		feature = "websocket"
+	)))]
+	pub async fn connect(&self, _url: Url) -> anyhow::Result<moq_net::Session> {
+		anyhow::bail!("no backend compiled; enable noq, quinn, quiche, iroh, or websocket feature");
+	}
+
+	#[cfg(any(
+		feature = "noq",
+		feature = "quinn",
+		feature = "quiche",
+		feature = "iroh",
+		feature = "websocket"
+	))]
+	pub async fn connect(&self, url: Url) -> anyhow::Result<moq_net::Session> {
+		let session = self.connect_inner(url).await?;
+		tracing::info!(version = %session.version(), "connected");
+		Ok(session)
+	}
+
+	#[cfg(any(
+		feature = "noq",
+		feature = "quinn",
+		feature = "quiche",
+		feature = "iroh",
+		feature = "websocket"
+	))]
+	async fn connect_inner(&self, url: Url) -> anyhow::Result<moq_net::Session> {
 		#[cfg(feature = "iroh")]
-		if crate::iroh::is_iroh_url(&url) {
-			let session = self.connect_iroh(url).await?;
-			let session = moq_lite::Session::connect(session, publish, subscribe).await?;
+		if url.scheme() == "iroh" {
+			let endpoint = self.iroh.as_ref().context("Iroh support is not enabled")?;
+			let session = crate::iroh::connect(endpoint, url, self.iroh_addrs.iter().copied()).await?;
+			let session = self.moq.connect(session).await?;
 			return Ok(session);
 		}
 
-		// Create futures for both possible protocols
-		let quic_url = url.clone();
-		let quic_handle = async {
-			match self.connect_quic(quic_url).await {
-				Ok(session) => Some(session),
-				Err(err) => {
+		#[cfg(feature = "noq")]
+		if let Some(noq) = self.noq.as_ref() {
+			let tls = self.tls.clone();
+			let quic_url = url.clone();
+			let quic_handle = async {
+				let res = noq.connect(&tls, quic_url).await;
+				if let Err(err) = &res {
 					tracing::warn!(%err, "QUIC connection failed");
-					None
 				}
+				res
+			};
+
+			#[cfg(feature = "websocket")]
+			{
+				let alpns = self.versions.alpns();
+				let ws_handle = crate::websocket::race_handle(&self.websocket, &self.tls, url, &alpns);
+
+				return Ok(tokio::select! {
+					Ok(quic) = quic_handle => self.moq.connect(quic).await?,
+					Some(Ok(ws)) = ws_handle => self.moq.connect(ws).await?,
+					else => anyhow::bail!("failed to connect to server"),
+				});
 			}
-		};
 
-		let ws_handle = async {
-			match self.connect_websocket(url).await {
-				Ok(session) => Some(session),
-				Err(err) => {
-					tracing::warn!(%err, "WebSocket connection failed");
-					None
-				}
+			#[cfg(not(feature = "websocket"))]
+			{
+				let session = quic_handle.await?;
+				return Ok(self.moq.connect(session).await?);
 			}
-		};
-
-		// Race the connection futures
-		Ok(tokio::select! {
-			Some(quic) = quic_handle => moq_lite::Session::connect(quic, publish, subscribe).await?,
-			Some(ws) = ws_handle => moq_lite::Session::connect(ws, publish, subscribe).await?,
-			// If both attempts fail, return an error
-			else => anyhow::bail!("failed to connect to server"),
-		})
-	}
-
-	async fn connect_quic(&self, mut url: Url) -> anyhow::Result<web_transport_quinn::Session> {
-		let mut config = self.tls.clone();
-
-		let host = url.host().context("invalid DNS name")?.to_string();
-		let port = url.port().unwrap_or(443);
-
-		// Look up the DNS entry.
-		let ip = tokio::net::lookup_host((host.clone(), port))
-			.await
-			.context("failed DNS lookup")?
-			.next()
-			.context("no DNS entries")?;
-
-		if url.scheme() == "http" {
-			// Perform a HTTP request to fetch the certificate fingerprint.
-			let mut fingerprint = url.clone();
-			fingerprint.set_path("/certificate.sha256");
-			fingerprint.set_query(None);
-			fingerprint.set_fragment(None);
-
-			tracing::warn!(url = %fingerprint, "performing insecure HTTP request for certificate");
-
-			let resp = reqwest::get(fingerprint.as_str())
-				.await
-				.context("failed to fetch fingerprint")?
-				.error_for_status()
-				.context("fingerprint request failed")?;
-
-			let fingerprint = resp.text().await.context("failed to read fingerprint")?;
-			let fingerprint = hex::decode(fingerprint.trim()).context("invalid fingerprint")?;
-
-			let verifier = FingerprintVerifier::new(config.crypto_provider().clone(), fingerprint);
-			config.dangerous().set_certificate_verifier(Arc::new(verifier));
-
-			url.set_scheme("https").expect("failed to set scheme");
 		}
 
-		let alpn = match url.scheme() {
-			"https" => web_transport_quinn::ALPN,
-			"moql" => moq_lite::lite::ALPN,
-			"moqt" => moq_lite::ietf::ALPN,
-			_ => anyhow::bail!("url scheme must be 'http', 'https', or 'moql'"),
-		};
+		#[cfg(feature = "quinn")]
+		if let Some(quinn) = self.quinn.as_ref() {
+			let tls = self.tls.clone();
+			let quic_url = url.clone();
+			let quic_handle = async {
+				let res = quinn.connect(&tls, quic_url).await;
+				if let Err(err) = &res {
+					tracing::warn!(%err, "QUIC connection failed");
+				}
+				res
+			};
 
-		// TODO support connecting to both ALPNs at the same time
-		config.alpn_protocols = vec![alpn.as_bytes().to_vec()];
-		config.key_log = Arc::new(rustls::KeyLogFile::new());
+			#[cfg(feature = "websocket")]
+			{
+				let alpns = self.versions.alpns();
+				let ws_handle = crate::websocket::race_handle(&self.websocket, &self.tls, url, &alpns);
 
-		let config: quinn::crypto::rustls::QuicClientConfig = config.try_into()?;
-		let mut config = quinn::ClientConfig::new(Arc::new(config));
-		config.transport_config(self.transport.clone());
-
-		tracing::debug!(%url, %ip, %alpn, "connecting");
-
-		let connection = self.quic.connect_with(config, ip, &host)?.await?;
-		tracing::Span::current().record("id", connection.stable_id());
-
-		let session = match alpn {
-			web_transport_quinn::ALPN => web_transport_quinn::Session::connect(connection, url).await?,
-			moq_lite::lite::ALPN | moq_lite::ietf::ALPN => web_transport_quinn::Session::raw(connection, url),
-			_ => unreachable!("ALPN was checked above"),
-		};
-
-		Ok(session)
-	}
-
-	async fn connect_websocket(&self, mut url: Url) -> anyhow::Result<web_transport_ws::Session> {
-		let host = url.host_str().context("missing hostname")?.to_string();
-		let port = url.port().unwrap_or_else(|| match url.scheme() {
-			"https" | "wss" | "moql" | "moqt" => 443,
-			"http" | "ws" => 80,
-			_ => 443,
-		});
-		let key = (host, port);
-
-		// Apply a small penalty to WebSocket to improve odds for QUIC to connect first,
-		// unless we've already had to fall back to WebSockets for this server.
-		// TODO if let chain
-		match self.websocket_delay {
-			Some(delay) if !WEBSOCKET_WON.lock().unwrap().contains(&key) => {
-				tokio::time::sleep(delay).await;
-				tracing::debug!(%url, delay_ms = %delay.as_millis(), "QUIC not yet connected, attempting WebSocket fallback");
+				return Ok(tokio::select! {
+					Ok(quic) = quic_handle => self.moq.connect(quic).await?,
+					Some(Ok(ws)) = ws_handle => self.moq.connect(ws).await?,
+					else => anyhow::bail!("failed to connect to server"),
+				});
 			}
-			_ => {}
+
+			#[cfg(not(feature = "websocket"))]
+			{
+				let session = quic_handle.await?;
+				return Ok(self.moq.connect(session).await?);
+			}
 		}
 
-		// Convert URL scheme: http:// -> ws://, https:// -> wss://
-		let needs_tls = match url.scheme() {
-			"http" => {
-				url.set_scheme("ws").expect("failed to set scheme");
-				false
+		#[cfg(feature = "quiche")]
+		if let Some(quiche) = self.quiche.as_ref() {
+			let quic_url = url.clone();
+			let quic_handle = async {
+				let res = quiche.connect(quic_url).await;
+				if let Err(err) = &res {
+					tracing::warn!(%err, "QUIC connection failed");
+				}
+				res
+			};
+
+			#[cfg(feature = "websocket")]
+			{
+				let alpns = self.versions.alpns();
+				let ws_handle = crate::websocket::race_handle(&self.websocket, &self.tls, url, &alpns);
+
+				return Ok(tokio::select! {
+					Ok(quic) = quic_handle => self.moq.connect(quic).await?,
+					Some(Ok(ws)) = ws_handle => self.moq.connect(ws).await?,
+					else => anyhow::bail!("failed to connect to server"),
+				});
 			}
-			"https" | "moql" | "moqt" => {
-				url.set_scheme("wss").expect("failed to set scheme");
-				true
+
+			#[cfg(not(feature = "websocket"))]
+			{
+				let session = quic_handle.await?;
+				return Ok(self.moq.connect(session).await?);
 			}
-			"ws" => false,
-			"wss" => true,
-			_ => anyhow::bail!("unsupported URL scheme for WebSocket: {}", url.scheme()),
-		};
+		}
 
-		tracing::debug!(%url, "connecting via WebSocket");
+		#[cfg(feature = "websocket")]
+		{
+			let alpns = self.versions.alpns();
+			let session = crate::websocket::connect(&self.websocket, &self.tls, url, &alpns).await?;
+			return Ok(self.moq.connect(session).await?);
+		}
 
-		// Use the existing TLS config (which respects tls-disable-verify) for secure connections
-		let connector = if needs_tls {
-			Some(tokio_tungstenite::Connector::Rustls(Arc::new(self.tls.clone())))
-		} else {
-			None
-		};
-
-		// Connect using tokio-tungstenite
-		let (ws_stream, _response) = tokio_tungstenite::connect_async_tls_with_config(
-			url.as_str(),
-			Some(tungstenite::protocol::WebSocketConfig {
-				max_message_size: Some(64 << 20), // 64 MB
-				max_frame_size: Some(16 << 20),   // 16 MB
-				accept_unmasked_frames: false,
-				..Default::default()
-			}),
-			false, // disable_nagle
-			connector,
-		)
-		.await
-		.context("failed to connect WebSocket")?;
-
-		// Wrap WebSocket in WebTransport compatibility layer
-		// Similar to what the relay does: web_transport_ws::Session::new(socket, true)
-		let session = web_transport_ws::Session::new(ws_stream, false);
-
-		tracing::warn!(%url, "using WebSocket fallback");
-		WEBSOCKET_WON.lock().unwrap().insert(key);
-
-		Ok(session)
-	}
-
-	#[cfg(feature = "iroh")]
-	async fn connect_iroh(&self, url: Url) -> anyhow::Result<web_transport_iroh::Session> {
-		let endpoint = self.iroh.as_ref().context("Iroh support is not enabled")?;
-		let alpn = match url.scheme() {
-			"moql+iroh" | "iroh" => moq_lite::lite::ALPN,
-			"moqt+iroh" => moq_lite::ietf::ALPN,
-			"h3+iroh" => web_transport_iroh::ALPN_H3,
-			_ => anyhow::bail!("Invalid URL: unknown scheme"),
-		};
-		let host = url.host().context("Invalid URL: missing host")?.to_string();
-		let endpoint_id: iroh::EndpointId = host.parse().context("Invalid URL: host is not an iroh endpoint id")?;
-		let conn = endpoint.connect(endpoint_id, alpn.as_bytes()).await?;
-		let session = match alpn {
-			web_transport_iroh::ALPN_H3 => {
-				// We need to change the scheme to `https` because currently web_transport_iroh only
-				// accepts that scheme.
-				let url = url_set_scheme(url, "https")?;
-				web_transport_iroh::Session::connect_h3(conn, url).await?
-			}
-			_ => web_transport_iroh::Session::raw(conn),
-		};
-		Ok(session)
+		#[cfg(not(feature = "websocket"))]
+		anyhow::bail!("no QUIC backend matched; this should not happen");
 	}
 }
+
+use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
 
 #[derive(Debug)]
 struct NoCertificateVerification(crypto::Provider);
@@ -465,72 +522,74 @@ impl rustls::client::danger::ServerCertVerifier for NoCertificateVerification {
 	}
 }
 
-// Verify the certificate matches a provided fingerprint.
-#[derive(Debug)]
-struct FingerprintVerifier {
-	provider: crypto::Provider,
-	fingerprint: Vec<u8>,
-}
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use clap::Parser;
 
-impl FingerprintVerifier {
-	pub fn new(provider: crypto::Provider, fingerprint: Vec<u8>) -> Self {
-		Self { provider, fingerprint }
-	}
-}
+	#[test]
+	fn test_toml_disable_verify_survives_update_from() {
+		let toml = r#"
+			tls.disable_verify = true
+		"#;
 
-impl rustls::client::danger::ServerCertVerifier for FingerprintVerifier {
-	fn verify_server_cert(
-		&self,
-		end_entity: &CertificateDer<'_>,
-		_intermediates: &[CertificateDer<'_>],
-		_server_name: &ServerName<'_>,
-		_ocsp: &[u8],
-		_now: UnixTime,
-	) -> Result<rustls::client::danger::ServerCertVerified, rustls::Error> {
-		let fingerprint = crypto::sha256(&self.provider, end_entity);
-		if fingerprint.as_ref() == self.fingerprint.as_slice() {
-			Ok(rustls::client::danger::ServerCertVerified::assertion())
-		} else {
-			Err(rustls::Error::General("fingerprint mismatch".into()))
-		}
+		let mut config: ClientConfig = toml::from_str(toml).unwrap();
+		assert_eq!(config.tls.disable_verify, Some(true));
+
+		// Simulate: TOML loaded, then CLI args re-applied (no --tls-disable-verify flag).
+		config.update_from(["test"]);
+		assert_eq!(config.tls.disable_verify, Some(true));
 	}
 
-	fn verify_tls12_signature(
-		&self,
-		message: &[u8],
-		cert: &CertificateDer<'_>,
-		dss: &rustls::DigitallySignedStruct,
-	) -> Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
-		rustls::crypto::verify_tls12_signature(message, cert, dss, &self.provider.signature_verification_algorithms)
+	#[test]
+	fn test_cli_disable_verify_flag() {
+		let config = ClientConfig::parse_from(["test", "--tls-disable-verify"]);
+		assert_eq!(config.tls.disable_verify, Some(true));
 	}
 
-	fn verify_tls13_signature(
-		&self,
-		message: &[u8],
-		cert: &CertificateDer<'_>,
-		dss: &rustls::DigitallySignedStruct,
-	) -> Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
-		rustls::crypto::verify_tls13_signature(message, cert, dss, &self.provider.signature_verification_algorithms)
+	#[test]
+	fn test_cli_disable_verify_explicit_false() {
+		let config = ClientConfig::parse_from(["test", "--tls-disable-verify=false"]);
+		assert_eq!(config.tls.disable_verify, Some(false));
 	}
 
-	fn supported_verify_schemes(&self) -> Vec<rustls::SignatureScheme> {
-		self.provider.signature_verification_algorithms.supported_schemes()
+	#[test]
+	fn test_cli_disable_verify_explicit_true() {
+		let config = ClientConfig::parse_from(["test", "--tls-disable-verify=true"]);
+		assert_eq!(config.tls.disable_verify, Some(true));
 	}
-}
 
-/// Returns a new URL with a changed scheme.
-///
-/// [`Url::set_scheme`] returns an error if the scheme change is not valid according to
-/// [the URL specification's section on legal scheme state overrides](https://url.spec.whatwg.org/#scheme-state).
-///
-/// This function allows all scheme changes, as long as the resulting URL is valid.
-#[cfg(feature = "iroh")]
-fn url_set_scheme(url: Url, scheme: &str) -> anyhow::Result<Url> {
-	let url = format!(
-		"{}:{}",
-		scheme,
-		url.to_string().split_once(":").context("invalid URL")?.1
-	)
-	.parse()?;
-	Ok(url)
+	#[test]
+	fn test_cli_no_disable_verify() {
+		let config = ClientConfig::parse_from(["test"]);
+		assert_eq!(config.tls.disable_verify, None);
+	}
+
+	#[test]
+	fn test_toml_version_survives_update_from() {
+		let toml = r#"
+			version = ["moq-lite-02"]
+		"#;
+
+		let mut config: ClientConfig = toml::from_str(toml).unwrap();
+		assert_eq!(config.version, vec!["moq-lite-02".parse::<moq_net::Version>().unwrap()]);
+
+		// Simulate: TOML loaded, then CLI args re-applied (no --client-version flag).
+		config.update_from(["test"]);
+		assert_eq!(config.version, vec!["moq-lite-02".parse::<moq_net::Version>().unwrap()]);
+	}
+
+	#[test]
+	fn test_cli_version() {
+		let config = ClientConfig::parse_from(["test", "--client-version", "moq-lite-03"]);
+		assert_eq!(config.version, vec!["moq-lite-03".parse::<moq_net::Version>().unwrap()]);
+	}
+
+	#[test]
+	fn test_cli_no_version_defaults_to_all() {
+		let config = ClientConfig::parse_from(["test"]);
+		assert!(config.version.is_empty());
+		// versions() helper returns all when none specified
+		assert_eq!(config.versions().alpns().len(), moq_net::ALPNS.len());
+	}
 }

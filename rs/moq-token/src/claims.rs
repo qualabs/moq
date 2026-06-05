@@ -1,30 +1,9 @@
-use serde::{Deserialize, Deserializer, Serialize};
-use serde_with::{TimestampSeconds, serde_as};
+use serde::{Deserialize, Serialize};
+use serde_with::{OneOrMany, TimestampSeconds, formats::PreferMany, serde_as};
 
-fn is_false(value: &bool) -> bool {
-	!value
-}
-
-fn string_or_vec<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
-where
-	D: Deserializer<'de>,
-{
-	#[derive(Deserialize)]
-	#[serde(untagged)]
-	enum StringOrVec {
-		String(String),
-		Vec(Vec<String>),
-	}
-
-	match StringOrVec::deserialize(deserializer)? {
-		StringOrVec::String(s) => Ok(vec![s]),
-		StringOrVec::Vec(v) => Ok(v),
-	}
-}
-
+#[serde_with::skip_serializing_none]
 #[serde_as]
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
-#[serde_with::skip_serializing_none]
 #[serde(default)]
 pub struct Claims {
 	/// The root for the publish/subscribe options below.
@@ -34,31 +13,15 @@ pub struct Claims {
 
 	/// If specified, the user can publish any matching broadcasts.
 	/// If not specified, the user will not publish any broadcasts.
-	#[serde(
-		default,
-		rename = "put",
-		skip_serializing_if = "Vec::is_empty",
-		deserialize_with = "string_or_vec"
-	)]
+	#[serde(default, rename = "put", skip_serializing_if = "Vec::is_empty")]
+	#[serde_as(as = "OneOrMany<_, PreferMany>")]
 	pub publish: Vec<String>,
-
-	/// If true, then this client is considered a cluster node.
-	/// Both the client and server will only announce broadcasts from non-cluster clients.
-	/// This avoids convoluted routing, as only the primary origin will announce.
-	//
-	// TODO This shouldn't be part of the token.
-	#[serde(default, rename = "cluster", skip_serializing_if = "is_false")]
-	pub cluster: bool,
 
 	/// If specified, the user can subscribe to any matching broadcasts.
 	/// If not specified, the user will not receive announcements and cannot subscribe to any broadcasts.
 	// NOTE: This can't be renamed to "sub" because that's a reserved JWT field.
-	#[serde(
-		default,
-		rename = "get",
-		skip_serializing_if = "Vec::is_empty",
-		deserialize_with = "string_or_vec"
-	)]
+	#[serde(default, rename = "get", skip_serializing_if = "Vec::is_empty")]
+	#[serde_as(as = "OneOrMany<_, PreferMany>")]
 	pub subscribe: Vec<String>,
 
 	/// The expiration time of the token as a unix timestamp.
@@ -73,9 +36,9 @@ pub struct Claims {
 }
 
 impl Claims {
-	pub fn validate(&self) -> anyhow::Result<()> {
+	pub fn validate(&self) -> crate::Result<()> {
 		if self.publish.is_empty() && self.subscribe.is_empty() {
-			anyhow::bail!("no publish or subscribe allowed; token is useless");
+			return Err(crate::Error::UselessToken);
 		}
 
 		Ok(())
@@ -92,7 +55,6 @@ mod tests {
 		Claims {
 			root: "test-path".to_string(),
 			publish: vec!["test-pub".into()],
-			cluster: false,
 			subscribe: vec!["test-sub".into()],
 			expires: Some(SystemTime::now() + Duration::from_secs(3600)),
 			issued: Some(SystemTime::now()),
@@ -111,7 +73,6 @@ mod tests {
 			root: "test-path".to_string(),
 			publish: vec![],
 			subscribe: vec![],
-			cluster: false,
 			expires: None,
 			issued: None,
 		};
@@ -132,7 +93,6 @@ mod tests {
 			root: "test-path".to_string(),
 			publish: vec!["test-pub".into()],
 			subscribe: vec![],
-			cluster: false,
 			expires: None,
 			issued: None,
 		};
@@ -146,7 +106,6 @@ mod tests {
 			root: "test-path".to_string(),
 			publish: vec![],
 			subscribe: vec!["test-sub".into()],
-			cluster: false,
 			expires: None,
 			issued: None,
 		};
@@ -160,7 +119,6 @@ mod tests {
 			root: "test-path".to_string(),        // no trailing slash
 			publish: vec!["relative-pub".into()], // relative path without leading slash
 			subscribe: vec![],
-			cluster: false,
 			expires: None,
 			issued: None,
 		};
@@ -175,7 +133,6 @@ mod tests {
 			root: "test-path".to_string(), // no trailing slash
 			publish: vec![],
 			subscribe: vec!["relative-sub".into()], // relative path without leading slash
-			cluster: false,
 			expires: None,
 			issued: None,
 		};
@@ -190,7 +147,6 @@ mod tests {
 			root: "test-path".to_string(),         // no trailing slash
 			publish: vec!["/absolute-pub".into()], // absolute path with leading slash
 			subscribe: vec![],
-			cluster: false,
 			expires: None,
 			issued: None,
 		};
@@ -204,7 +160,6 @@ mod tests {
 			root: "test-path".to_string(), // no trailing slash
 			publish: vec![],
 			subscribe: vec!["/absolute-sub".into()], // absolute path with leading slash
-			cluster: false,
 			expires: None,
 			issued: None,
 		};
@@ -218,7 +173,6 @@ mod tests {
 			root: "test-path".to_string(), // no trailing slash
 			publish: vec!["".into()],      // empty string
 			subscribe: vec![],
-			cluster: false,
 			expires: None,
 			issued: None,
 		};
@@ -232,7 +186,6 @@ mod tests {
 			root: "test-path".to_string(), // no trailing slash
 			publish: vec![],
 			subscribe: vec!["".into()], // empty string
-			cluster: false,
 			expires: None,
 			issued: None,
 		};
@@ -246,7 +199,6 @@ mod tests {
 			root: "test-path".to_string(),          // with trailing slash
 			publish: vec!["relative-pub".into()],   // relative path is ok when path is prefix
 			subscribe: vec!["relative-sub".into()], // relative path is ok when path is prefix
-			cluster: false,
 			expires: None,
 			issued: None,
 		};
@@ -260,7 +212,6 @@ mod tests {
 			root: "".to_string(), // empty path
 			publish: vec!["test-pub".into()],
 			subscribe: vec![],
-			cluster: false,
 			expires: None,
 			issued: None,
 		};
@@ -277,7 +228,6 @@ mod tests {
 		assert_eq!(deserialized.root, claims.root);
 		assert_eq!(deserialized.publish, claims.publish);
 		assert_eq!(deserialized.subscribe, claims.subscribe);
-		assert_eq!(deserialized.cluster, claims.cluster);
 	}
 
 	#[test]
@@ -286,15 +236,8 @@ mod tests {
 		assert_eq!(claims.root, "");
 		assert!(claims.publish.is_empty());
 		assert!(claims.subscribe.is_empty());
-		assert!(!claims.cluster);
 		assert_eq!(claims.expires, None);
 		assert_eq!(claims.issued, None);
-	}
-
-	#[test]
-	fn test_is_false_helper() {
-		assert!(is_false(&false));
-		assert!(!is_false(&true));
 	}
 
 	#[test]

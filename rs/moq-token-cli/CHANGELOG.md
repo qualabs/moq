@@ -7,6 +7,133 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.28](https://github.com/moq-dev/moq/compare/moq-token-cli-v0.5.27...moq-token-cli-v0.5.28) - 2026-05-30
+
+### Other
+
+- update Cargo.lock dependencies
+
+## [0.5.27](https://github.com/moq-dev/moq/compare/moq-token-cli-v0.5.26...moq-token-cli-v0.5.27) - 2026-05-24
+
+### Other
+
+- treat `-` as stdin/stdout, not a literal file path ([#1490](https://github.com/moq-dev/moq/pull/1490))
+
+## [0.5.26](https://github.com/moq-dev/moq/compare/moq-token-cli-v0.5.25...moq-token-cli-v0.5.26) - 2026-05-21
+
+### Other
+
+- update Cargo.lock dependencies
+
+## [0.5.25](https://github.com/moq-dev/moq/compare/moq-token-cli-v0.5.24...moq-token-cli-v0.5.25) - 2026-05-18
+
+### Other
+
+- update Cargo.lock dependencies
+
+## [0.5.24](https://github.com/moq-dev/moq/compare/moq-token-cli-v0.5.23...moq-token-cli-v0.5.24) - 2026-05-07
+
+### Other
+
+- hop-based clustering ([#1322](https://github.com/moq-dev/moq/pull/1322))
+
+## [0.5.23](https://github.com/moq-dev/moq/compare/moq-token-cli-v0.5.22...moq-token-cli-v0.5.23) - 2026-04-20
+
+### Other
+
+- update Cargo.lock dependencies
+
+## [0.5.22](https://github.com/moq-dev/moq/compare/moq-token-cli-v0.5.21...moq-token-cli-v0.5.22) - 2026-04-17
+
+### Other
+
+- update Cargo.lock dependencies
+
+## [0.5.20](https://github.com/moq-dev/moq/compare/moq-token-cli-v0.5.19...moq-token-cli-v0.5.20) - 2026-04-15
+
+### Other
+
+- update Cargo.lock dependencies
+
+## [0.5.19](https://github.com/moq-dev/moq/compare/moq-token-cli-v0.5.18...moq-token-cli-v0.5.19) - 2026-04-11
+
+### Other
+
+- update Cargo.lock dependencies
+
+## [0.5.18](https://github.com/moq-dev/moq/compare/moq-token-cli-v0.5.17...moq-token-cli-v0.5.18) - 2026-04-07
+
+### Other
+
+- Replace guest access with programmatic public access config ([#1233](https://github.com/moq-dev/moq/pull/1233))
+- Switch Docker images from kixelated/ to moqdev/ ([#1234](https://github.com/moq-dev/moq/pull/1234))
+
+## [0.5.17](https://github.com/moq-dev/moq/compare/moq-token-cli-v0.5.16...moq-token-cli-v0.5.17) - 2026-04-03
+
+### Added
+
+- *(moq-relay)* on-demand key resolution via --auth-keys ([#1188](https://github.com/moq-dev/moq/pull/1188))
+- key-based public access for anonymous subscribe/publish ([#1180](https://github.com/moq-dev/moq/pull/1180))
+
+### Other
+
+- Remove redundant validateClaims from @moq/token ([#1196](https://github.com/moq-dev/moq/pull/1196))
+- Add Markdown linting with remark configuration ([#1183](https://github.com/moq-dev/moq/pull/1183))
+
+## [0.5.16](https://github.com/moq-dev/moq/compare/moq-token-cli-v0.5.15...moq-token-cli-v0.5.16) - 2026-03-26
+
+### Other
+
+- update Cargo.lock dependencies
+
+## [0.5.15](https://github.com/moq-dev/moq/compare/moq-token-cli-v0.5.14...moq-token-cli-v0.5.15) - 2026-03-18
+
+### Other
+
+- Fix Docker CI: align nix package names with crate names ([#1122](https://github.com/moq-dev/moq/pull/1122))
+
+## [0.5.14](https://github.com/moq-dev/moq/compare/moq-token-cli-v0.5.13...moq-token-cli-v0.5.14) - 2026-03-16
+
+### Other
+
+- update Cargo.lock dependencies
+
+## [0.5.13](https://github.com/moq-dev/moq/compare/moq-token-cli-v0.5.12...moq-token-cli-v0.5.13) - 2026-03-13
+
+### Other
+
+- Set MSRV to 1.85 (edition 2024) ([#1083](https://github.com/moq-dev/moq/pull/1083))
+
+## [0.5.12](https://github.com/moq-dev/moq/compare/moq-token-cli-v0.5.11...moq-token-cli-v0.5.12) - 2026-03-03
+
+### Other
+
+- update Cargo.lock dependencies
+
+## [0.5.11](https://github.com/moq-dev/moq/compare/moq-token-cli-v0.5.10...moq-token-cli-v0.5.11) - 2026-02-12
+
+### Other
+
+- (AI) Add support for quiche to moq-native ([#928](https://github.com/moq-dev/moq/pull/928))
+
+## [0.5.10](https://github.com/moq-dev/moq/compare/moq-token-cli-v0.5.9...moq-token-cli-v0.5.10) - 2026-02-09
+
+### Other
+
+- update Cargo.lock dependencies
+
+## [0.5.9](https://github.com/moq-dev/moq/compare/moq-token-cli-v0.5.8...moq-token-cli-v0.5.9) - 2026-02-03
+
+### Other
+
+- update Cargo.lock dependencies
+
+## [0.5.8](https://github.com/moq-dev/moq/compare/moq-token-cli-v0.5.7...moq-token-cli-v0.5.8) - 2026-01-24
+
+### Other
+
+- upgrade to Rust edition 2024 ([#838](https://github.com/moq-dev/moq/pull/838))
+
 ## [0.5.7](https://github.com/moq-dev/moq/compare/moq-token-cli-v0.5.6...moq-token-cli-v0.5.7) - 2026-01-10
 
 ### Other

@@ -7,6 +7,83 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0](https://github.com/moq-dev/moq/compare/moq-token-v0.5.17...moq-token-v0.6.0) - 2026-05-07
+
+### Other
+
+- hop-based clustering ([#1322](https://github.com/moq-dev/moq/pull/1322))
+
+## [0.5.17](https://github.com/moq-dev/moq/compare/moq-token-v0.5.16...moq-token-v0.5.17) - 2026-04-19
+
+### Other
+
+- Add README files for Rust crates ([#1284](https://github.com/moq-dev/moq/pull/1284))
+
+## [0.5.15](https://github.com/moq-dev/moq/compare/moq-token-v0.5.14...moq-token-v0.5.15) - 2026-04-09
+
+### Other
+
+- Fix lychee CI link checker failures ([#1269](https://github.com/moq-dev/moq/pull/1269))
+- release ([#1229](https://github.com/moq-dev/moq/pull/1229))
+
+## [0.5.14](https://github.com/moq-dev/moq/compare/moq-token-v0.5.13...moq-token-v0.5.14) - 2026-04-07
+
+### Other
+
+- Replace guest access with programmatic public access config ([#1233](https://github.com/moq-dev/moq/pull/1233))
+
+## [0.5.13](https://github.com/moq-dev/moq/compare/moq-token-v0.5.12...moq-token-v0.5.13) - 2026-04-07
+
+### Other
+
+- Replace fabricated code samples in docs with links to actual source files ([#1216](https://github.com/moq-dev/moq/pull/1216))
+
+## [0.5.12](https://github.com/moq-dev/moq/compare/moq-token-v0.5.11...moq-token-v0.5.12) - 2026-04-03
+
+### Added
+
+- *(moq-relay)* on-demand key resolution via --auth-keys ([#1188](https://github.com/moq-dev/moq/pull/1188))
+- key-based public access for anonymous subscribe/publish ([#1180](https://github.com/moq-dev/moq/pull/1180))
+
+### Other
+
+- Remove redundant validateClaims from @moq/token ([#1196](https://github.com/moq-dev/moq/pull/1196))
+- Replace anyhow with custom error types using thiserror ([#1192](https://github.com/moq-dev/moq/pull/1192))
+- Add Markdown linting with remark configuration ([#1183](https://github.com/moq-dev/moq/pull/1183))
+- Add moq-relay release workflow and Nix cache configuration ([#1178](https://github.com/moq-dev/moq/pull/1178))
+
+## [0.5.11](https://github.com/moq-dev/moq/compare/moq-token-v0.5.10...moq-token-v0.5.11) - 2026-03-18
+
+### Other
+
+- Fix Docker CI: align nix package names with crate names ([#1122](https://github.com/moq-dev/moq/pull/1122))
+
+## [0.5.10](https://github.com/moq-dev/moq/compare/moq-token-v0.5.9...moq-token-v0.5.10) - 2026-03-13
+
+### Other
+
+- Set MSRV to 1.85 (edition 2024) ([#1083](https://github.com/moq-dev/moq/pull/1083))
+
+## [0.5.9](https://github.com/moq-dev/moq/compare/moq-token-v0.5.8...moq-token-v0.5.9) - 2026-02-09
+
+### Other
+
+- Fix tokens with a null expiration. ([#922](https://github.com/moq-dev/moq/pull/922))
+
+## [0.5.8](https://github.com/moq-dev/moq/compare/moq-token-v0.5.7...moq-token-v0.5.8) - 2026-02-03
+
+### Other
+
+- Add some more documentation ([#901](https://github.com/moq-dev/moq/pull/901))
+
+## [0.5.7](https://github.com/moq-dev/moq/compare/moq-token-v0.5.6...moq-token-v0.5.7) - 2026-01-24
+
+### Other
+
+- JWK sets ([#809](https://github.com/moq-dev/moq/pull/809))
+- Fix link to auth docs ([#842](https://github.com/moq-dev/moq/pull/842))
+- upgrade to Rust edition 2024 ([#838](https://github.com/moq-dev/moq/pull/838))
+
 ## [0.5.6](https://github.com/moq-dev/moq/compare/moq-token-v0.5.5...moq-token-v0.5.6) - 2026-01-10
 
 ### Other

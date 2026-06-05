@@ -1,0 +1,49 @@
+name: Release JS
+
+permissions:
+  contents: read
+  id-token: write
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'js/**'
+      - '.github/workflows/release-js.yml'
+  pull_request:
+    paths:
+      - '.github/workflows/release-js.yml'
+      - 'js/common/release.ts'
+
+concurrency:
+  group: release-js
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Release JS Packages
+    runs-on: ubuntu-latest
+    if: github.repository_owner == 'moq-dev'
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+
+      - uses: DeterminateSystems/nix-installer-action@00199f951aeb9404028a6e4b95ad42546f73296a # main
+        with:
+          determinate: false
+      - uses: DeterminateSystems/magic-nix-cache-action@908b263ff629f4cc17666315b7fd3ec127c6244d # main
+
+      - name: Setup npm registry
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: nix develop --command bun install --frozen-lockfile
+
+      - name: Release packages
+        env:
+          DRY_RUN: ${{ github.event_name == 'pull_request' && 'true' || 'false' }}
+        run: nix develop --command bun --filter '*' release

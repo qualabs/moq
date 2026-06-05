@@ -4,7 +4,7 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"dev": "vitepress dev",
+		"dev": "vitepress dev --open",
 		"build": "vitepress build",
 		"preview": "vitepress preview",
 		"deploy": "vitepress build && wrangler deploy"

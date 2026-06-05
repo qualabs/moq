@@ -5,15 +5,11 @@ authors = ["Luke Curley"]
 repository = "https://github.com/moq-dev/moq"
 license = "MIT OR Apache-2.0"
 
-version = "0.5.7"
+version = "0.5.28"
 edition = "2024"
-
-[[bin]]
-name = "moq-token"
-path = "src/bin.rs"
-doc = false
+rust-version.workspace = true
 
 [dependencies]
 anyhow = "1"
 clap = { version = "4", features = ["derive"] }
-moq-token = { version = "0.5", path = "../moq-token" }
+moq-token = { workspace = true }

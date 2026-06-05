@@ -1,18 +1,34 @@
-import { z } from "zod";
+import * as z from "zod/mini";
+import { u53Schema } from "./integers";
 
 /**
- * Container format for frame timestamp encoding.
+ * Container format for frame timestamp encoding and frame payload structure.
  *
- * - "legacy": Uses QUIC VarInt encoding (1-8 bytes, variable length)
- * - "raw": Uses fixed u64 encoding (8 bytes, big-endian)
- * - "fmp4": Fragmented MP4 container (future)
+ * - "legacy": QUIC VarInt timestamp prefix followed by the raw codec payload.
+ *             Timestamps are in microseconds.
+ * - "cmaf": Fragmented MP4 container - frames contain complete moof+mdat fragments.
+ *           The init segment (ftyp+moov) is base64-encoded in the catalog.
+ * - "loc": Low Overhead Container (draft-ietf-moq-loc). Each frame has a small
+ *          property block followed by the codec payload.
  */
-export const ContainerSchema = z.enum(["legacy", "raw", "fmp4"]);
+export const ContainerSchema = z._default(
+	z.discriminatedUnion("kind", [
+		// The default hang container
+		z.object({ kind: z.literal("legacy") }),
+		// CMAF container with base64-encoded init segment (ftyp+moov).
+		// `timescale` and `trackId` are deprecated: they duplicate info in `init`
+		// and are accepted only so catalogs from newer publishers (which still
+		// emit them for older players) round-trip cleanly.
+		z.object({
+			kind: z.literal("cmaf"),
+			init: z.base64(),
+			timescale: z.optional(u53Schema),
+			trackId: z.optional(u53Schema),
+		}),
+		// Low Overhead Container.
+		z.object({ kind: z.literal("loc") }),
+	]),
+	{ kind: "legacy" },
+);
 
 export type Container = z.infer<typeof ContainerSchema>;
-
-/**
- * Default container format when not specified.
- * Set to legacy for backward compatibility.
- */
-export const DEFAULT_CONTAINER: Container = "legacy";

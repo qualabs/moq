@@ -1,11 +1,10 @@
-import { z } from "zod";
-import { ContainerSchema, DEFAULT_CONTAINER } from "./container";
+import * as z from "zod/mini";
+import { ContainerSchema } from "./container";
 import { u53Schema } from "./integers";
 
 // Backwards compatibility: old track schema
 const TrackSchema = z.object({
 	name: z.string(),
-	priority: z.number().int().min(0).max(255),
 });
 
 // Mirrors AudioDecoderConfig
@@ -14,14 +13,13 @@ export const AudioConfigSchema = z.object({
 	// See: https://w3c.github.io/webcodecs/codec_registry.html
 	codec: z.string(),
 
-	// Container format for timestamp encoding
-	// Defaults to "legacy" when not specified in catalog (backward compatibility)
-	container: ContainerSchema.default(DEFAULT_CONTAINER),
+	// The container format, used to decode the timestamp and more.
+	container: ContainerSchema,
 
 	// The description is used for some codecs.
 	// If provided, we can initialize the decoder based on the catalog alone.
 	// Otherwise, the initialization information is in-band.
-	description: z.string().optional(), // hex encoded TODO use base64
+	description: z.optional(z.string()), // hex encoded TODO use base64
 
 	// The sample rate of the audio in Hz
 	sampleRate: u53Schema,
@@ -31,30 +29,34 @@ export const AudioConfigSchema = z.object({
 
 	// The bitrate of the audio in bits per second
 	// TODO: Support up to Number.MAX_SAFE_INTEGER
-	bitrate: u53Schema.optional(),
+	bitrate: z.optional(u53Schema),
+
+	// The maximum jitter before the next frame is emitted in milliseconds.
+	// The player's jitter buffer should be larger than this value.
+	// If not provided, the player should assume each frame is flushed immediately.
+	//
+	// NOTE: The audio "frame" duration depends on the codec, sample rate, etc.
+	// ex: AAC often uses 1024 samples per frame, so at 44100Hz, this would be 1024/44100 = 23ms
+	jitter: z.optional(u53Schema),
 });
 
-export const AudioSchema = z
-	.object({
+export const AudioSchema = z.union([
+	z.object({
 		// A map of track name to rendition configuration.
 		// This is not an array so it will work with JSON Merge Patch.
 		renditions: z.record(z.string(), AudioConfigSchema),
-
-		// The priority of the audio track, relative to other tracks in the broadcast.
-		priority: z.number().int().min(0).max(255),
-	})
-	.or(
-		// Backwards compatibility: transform old {track, config} format to new object format
-		z
-			.object({
-				track: TrackSchema,
-				config: AudioConfigSchema,
-			})
-			.transform((old) => ({
-				renditions: { [old.track.name]: old.config },
-				priority: old.track.priority,
-			})),
-	);
+	}),
+	// Backwards compatibility: transform old {track, config} format to new object format
+	z.pipe(
+		z.object({
+			track: TrackSchema,
+			config: AudioConfigSchema,
+		}),
+		z.transform((old) => ({
+			renditions: { [old.track.name]: old.config },
+		})),
+	),
+]);
 
 export type Audio = z.infer<typeof AudioSchema>;
 export type AudioConfig = z.infer<typeof AudioConfigSchema>;

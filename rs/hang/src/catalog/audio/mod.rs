@@ -4,12 +4,14 @@ mod codec;
 pub use aac::*;
 pub use codec::*;
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, btree_map};
 
 use bytes::Bytes;
 
 use serde::{Deserialize, Serialize};
 use serde_with::{DisplayFromStr, hex::Hex};
+
+use crate::catalog::Container;
 
 /// Information about an audio track in the catalog.
 ///
@@ -23,9 +25,22 @@ pub struct Audio {
 	/// This is not an array so it will work with JSON Merge Patch.
 	/// We use a BTreeMap so keys are sorted alphabetically for *some* deterministic behavior.
 	pub renditions: BTreeMap<String, AudioConfig>,
+}
 
-	/// The priority of the audio track, relative to other tracks in the broadcast.
-	pub priority: u8,
+impl Audio {
+	/// Insert a track config, returning an error if the name already exists.
+	pub fn insert(&mut self, name: &str, config: AudioConfig) -> crate::Result<()> {
+		let btree_map::Entry::Vacant(entry) = self.renditions.entry(name.to_string()) else {
+			return Err(crate::Error::Duplicate(name.to_string()));
+		};
+		entry.insert(config);
+		Ok(())
+	}
+
+	/// Remove the track from the catalog and return the configuration if found.
+	pub fn remove(&mut self, name: &str) -> Option<AudioConfig> {
+		self.renditions.remove(name)
+	}
 }
 
 /// Audio decoder configuration based on WebCodecs AudioDecoderConfig.
@@ -34,10 +49,17 @@ pub struct Audio {
 /// including codec-specific parameters, sample rate, and channel configuration.
 ///
 /// Reference: <https://www.w3.org/TR/webcodecs/#audio-decoder-config>
+///
+/// Marked `#[non_exhaustive]` so additional optional fields can be added
+/// without bumping the major version. External callers build a config with
+/// [`AudioConfig::new`] and then assign whichever optional fields they need;
+/// struct-literal construction (with or without `..base`) is not available
+/// outside this crate.
 #[serde_with::serde_as]
 #[serde_with::skip_serializing_none]
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub struct AudioConfig {
 	// The codec, see the registry for details:
 	// https://w3c.github.io/webcodecs/codec_registry.html
@@ -60,4 +82,38 @@ pub struct AudioConfig {
 	#[serde(default)]
 	#[serde_as(as = "Option<Hex>")]
 	pub description: Option<Bytes>,
+
+	/// Container format for frame encoding.
+	/// Defaults to "legacy" for backward compatibility.
+	#[serde(default)]
+	pub container: Container,
+
+	/// The maximum jitter before the next frame is emitted in milliseconds.
+	/// The player's jitter buffer should be larger than this value.
+	/// If not provided, the player should assume each frame is flushed immediately.
+	///
+	/// NOTE: The audio "frame" duration depends on the codec, sample rate, etc.
+	/// ex: AAC often uses 1024 samples per frame, so at 44100Hz, this would be 1024/44100 = 23ms
+	#[serde(default)]
+	pub jitter: Option<moq_net::Time>,
+}
+
+impl AudioConfig {
+	/// Construct a config with the required fields set and every optional
+	/// field cleared. `container` defaults to [`Container::default`]. Fields
+	/// are `pub`, so callers set whatever they need by assignment afterwards.
+	///
+	/// This is the only path external crates have to build an `AudioConfig`
+	/// since the type is `#[non_exhaustive]`.
+	pub fn new(codec: impl Into<AudioCodec>, sample_rate: u32, channel_count: u32) -> Self {
+		Self {
+			codec: codec.into(),
+			sample_rate,
+			channel_count,
+			bitrate: None,
+			description: None,
+			container: Container::default(),
+			jitter: None,
+		}
+	}
 }

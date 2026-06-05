@@ -1,6 +1,6 @@
 # moq-token
 
-A Javascript/Typescript library and CLI for implementing authentication with a MoQ relay. For comprehensive documentation including token structure, authorization rules, and examples, see the [Authentication Documentation](../../doc/concepts/authentication.md)
+A Javascript/Typescript library and CLI for implementing authentication with a MoQ relay. For comprehensive documentation including token structure, authorization rules, and examples, see the [Authentication Documentation](../../doc/app/relay/auth.md)
 
 ## Installation
 
@@ -10,7 +10,6 @@ For general installation as a library
 npm add @moq/token
 ```
 
-
 #### CLI
 
 To use as a CLI (with node installed)
@@ -18,22 +17,23 @@ To use as a CLI (with node installed)
 ```bash
 npm install -g @moq/token
 ```
+
 And then run
+
 ```bash
 moq-token generate ...
 ```
 
-You can also just directly use it via deno or bun as:
+You can also just directly use it via bun as:
 
 ```bash
 bunx @moq/token generate ...
-deno run -A npm:@moq/token/cli generate ...
 ```
-
 
 ## Usage
 
 #### Generation
+
 You would first generate a token as so:
 
 ```typescript
@@ -43,12 +43,14 @@ const key = await generate('HS256');
 ```
 
 or as a CLI
+
 ```bash
 # generate secret key
 moq-token generate --key key.jwk
 ```
 
 The default is HS256, you can choose other algorithms with `--algorithm`:
+
 ```bash
 moq-token generate --key key.jwk --algorithm ES256
 ```
@@ -114,6 +116,7 @@ See **[examples/sign-and-verify.ts](./examples/sign-and-verify.ts)** for a compl
 ### Algorithm
 
 Supported algorithms:
+
 - `HS256` - HMAC with SHA-256
 - `HS384` - HMAC with SHA-384
 - `HS512` - HMAC with SHA-512
@@ -127,7 +130,6 @@ interface Claims {
 	root?: string;           // Root path for publish/subscribe (optional)
 	publish?: string;        // Publish permission pattern
 	subscribe?: string;      // Subscribe permission pattern
-	cluster?: boolean;       // Whether this is a cluster node
 	expires?: Date;          // Token expiration time
 	issued?: Date;           // Token issued time
 }

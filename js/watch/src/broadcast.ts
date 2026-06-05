@@ -1,0 +1,190 @@
+import * as Catalog from "@moq/hang/catalog";
+import * as Msf from "@moq/msf";
+import type * as Moq from "@moq/net";
+import { Path } from "@moq/net";
+import { Effect, type Getter, Signal } from "@moq/signals";
+
+import { toHang } from "./msf";
+
+// Watch supports the two on-the-wire catalog formats from @moq/hang plus a
+// "manual" mode where the user supplies the catalog directly without fetching.
+export const CATALOG_FORMATS = [...Catalog.FORMATS, "manual"] as const;
+export type CatalogFormat = (typeof CATALOG_FORMATS)[number];
+
+export function parseCatalogFormat(value: string | null): CatalogFormat | undefined {
+	if (value === null) return undefined;
+	return CATALOG_FORMATS.find((f) => f === value);
+}
+
+export interface BroadcastProps {
+	connection?: Moq.Connection.Established | Signal<Moq.Connection.Established | undefined>;
+
+	// All actively announced broadcast paths from the connection.
+	announced?: Getter<Set<Moq.Path.Valid>>;
+
+	// Whether to start downloading the broadcast.
+	// Defaults to false so you can make sure everything is ready before starting.
+	enabled?: boolean | Signal<boolean>;
+
+	// The broadcast name.
+	name?: Moq.Path.Valid | Signal<Moq.Path.Valid>;
+
+	// Whether to reload the broadcast when it goes offline.
+	// Defaults to false; pass true to wait for an announcement before subscribing.
+	reload?: boolean | Signal<boolean>;
+
+	// Which catalog format to use. When `undefined` (the default), the format is
+	// auto-detected from the broadcast name extension (`.hang`, `.msf`), falling
+	// back to `"hang"` if the name has no recognized extension. Set to a
+	// specific value to override auto-detection.
+	catalogFormat?: CatalogFormat | Signal<CatalogFormat | undefined>;
+
+	// Initial catalog. Used directly when catalogFormat is "manual"; otherwise it's
+	// overwritten by whatever the fetched catalog track produces. Note: switching
+	// catalogFormat between "manual" and a fetched format will reset this signal
+	// to undefined when the fetched-format spawn tears down. Set the catalog
+	// after switching formats, not before.
+	catalog?: Catalog.Root | Signal<Catalog.Root | undefined>;
+}
+
+// A catalog source that (optionally) reloads automatically when live/offline.
+export class Broadcast {
+	connection: Signal<Moq.Connection.Established | undefined>;
+
+	enabled: Signal<boolean>;
+	name: Signal<Moq.Path.Valid>;
+	status = new Signal<"offline" | "loading" | "live">("offline");
+	reload: Signal<boolean>;
+
+	// `undefined` means auto-detect from the broadcast name extension.
+	catalogFormat: Signal<CatalogFormat | undefined>;
+
+	#active = new Signal<Moq.Broadcast | undefined>(undefined);
+	readonly active: Getter<Moq.Broadcast | undefined> = this.#active;
+
+	// The active catalog. Writable so users can supply it directly when
+	// catalogFormat is "manual"; otherwise the fetch loop owns writes.
+	catalog: Signal<Catalog.Root | undefined>;
+
+	// All actively announced broadcast paths from the connection.
+	#announced: Getter<Set<Moq.Path.Valid>>;
+
+	// Whether `name` is currently in the announced set (or skipping the check).
+	// Derived in its own effect so that flaps for unrelated broadcasts don't
+	// retrigger the broadcast/catalog subscriptions.
+	#announcedNow = new Signal(false);
+
+	signals = new Effect();
+
+	constructor(props?: BroadcastProps) {
+		this.connection = Signal.from(props?.connection);
+		this.name = Signal.from(props?.name ?? Path.empty());
+		this.enabled = Signal.from(props?.enabled ?? false);
+		this.reload = Signal.from(props?.reload ?? false);
+		this.catalogFormat = Signal.from<CatalogFormat | undefined>(props?.catalogFormat);
+		this.catalog = Signal.from(props?.catalog);
+
+		this.#announced = props?.announced ?? new Signal(new Set());
+
+		this.signals.run(this.#runAnnouncedNow.bind(this));
+		this.signals.run(this.#runBroadcast.bind(this));
+		this.signals.run(this.#runCatalog.bind(this));
+	}
+
+	#runAnnouncedNow(effect: Effect): void {
+		const reload = effect.get(this.reload);
+		if (!reload) {
+			this.#announcedNow.set(true);
+			return;
+		}
+
+		// Cloudflare's relay does not yet support announcement subscriptions,
+		// so an announcement will never arrive. Fall back to subscribing
+		// immediately (reload=false behaviour) instead of waiting forever.
+		const conn = effect.get(this.connection);
+		if (conn?.url.hostname.endsWith("mediaoverquic.com")) {
+			console.warn("Cloudflare relay does not support broadcast discovery yet; ignoring reload signal.");
+			this.#announcedNow.set(true);
+			return;
+		}
+
+		const name = effect.get(this.name);
+		const announced = effect.get(this.#announced);
+		this.#announcedNow.set(announced.has(name));
+	}
+
+	#runBroadcast(effect: Effect): void {
+		const enabled = effect.get(this.enabled);
+		if (!enabled) return;
+
+		if (!effect.get(this.#announcedNow)) return;
+
+		const conn = effect.get(this.connection);
+		if (!conn) return;
+
+		const name = effect.get(this.name);
+		const broadcast = conn.consume(name);
+		effect.cleanup(() => broadcast.close());
+
+		effect.set(this.#active, broadcast, undefined);
+	}
+
+	#runCatalog(effect: Effect): void {
+		const enabled = effect.get(this.enabled);
+		if (!enabled) return;
+
+		const catalogFormat = effect.get(this.catalogFormat);
+		const name = effect.get(this.name);
+		// Explicit override beats name-derived auto-detection. When neither is
+		// set we fall back to the default, keeping legacy names that have no
+		// extension working.
+		const format: CatalogFormat = catalogFormat ?? Catalog.detectFormat(name) ?? Catalog.DEFAULT_FORMAT;
+
+		if (format === "manual") {
+			// User-supplied catalog; no track to fetch.
+			const catalog = effect.get(this.catalog);
+			this.status.set(catalog ? "live" : "loading");
+			return;
+		}
+
+		const broadcast = effect.get(this.active);
+		if (!broadcast) return;
+
+		this.status.set("loading");
+
+		const trackName = format === "hang" ? "catalog.json" : "catalog";
+		const track = broadcast.subscribe(trackName, Catalog.PRIORITY.catalog);
+		effect.cleanup(() => track.close());
+
+		const fetchNext =
+			format === "hang"
+				? async () => Catalog.fetch(track)
+				: async () => {
+						const update = await Msf.fetch(track);
+						return update ? toHang(update) : undefined;
+					};
+
+		effect.spawn(async () => {
+			try {
+				for (;;) {
+					const update = await Promise.race([effect.cancel, fetchNext()]);
+					if (!update) break;
+
+					console.debug("received catalog", format, this.name.peek(), update);
+
+					this.catalog.set(update);
+					this.status.set("live");
+				}
+			} catch (err) {
+				console.warn("error fetching catalog", this.name.peek(), err);
+			} finally {
+				this.catalog.set(undefined);
+				this.status.set("offline");
+			}
+		});
+	}
+
+	close() {
+		this.signals.close();
+	}
+}

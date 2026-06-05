@@ -1,0 +1,18 @@
+.controls {
+	gap: var(--spacing-16);
+	margin: var(--spacing-8) 0;
+	border-radius: var(--border-radius-lg);
+	border: var(--spacing-1) solid var(--color-white-alpha-10);
+	padding: var(--spacing-16);
+}
+
+.source-label {
+	font-size: 1rem;
+	font-weight: 600;
+	letter-spacing: 0.1rem;
+	color: var(--color-white-alpha-90);
+}
+
+.source-selector {
+	gap: var(--spacing-16);
+}

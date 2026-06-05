@@ -7,6 +7,138 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.18.1](https://github.com/moq-dev/moq/compare/hang-v0.18.0...hang-v0.18.1) - 2026-05-30
+
+### Other
+
+- route Android logs to logcat ([#1541](https://github.com/moq-dev/moq/pull/1541))
+
+## [0.18.0](https://github.com/moq-dev/moq/compare/hang-v0.17.0...hang-v0.18.0) - 2026-05-24
+
+### Other
+
+- non_exhaustive VideoConfig/AudioConfig with constructors ([#1485](https://github.com/moq-dev/moq/pull/1485))
+
+## [0.17.0](https://github.com/moq-dev/moq/compare/hang-v0.16.1...hang-v0.17.0) - 2026-05-23
+
+### Other
+
+- Add Low Overhead Container (LOC) frame format support ([#1388](https://github.com/moq-dev/moq/pull/1388))
+- re-emit deprecated CMAF timescale/trackId in catalog ([#1440](https://github.com/moq-dev/moq/pull/1440))
+
+## [0.16.1](https://github.com/moq-dev/moq/compare/hang-v0.16.0...hang-v0.16.1) - 2026-05-20
+
+### Other
+
+- rename moq-lite package to moq-net ([#1428](https://github.com/moq-dev/moq/pull/1428))
+
+## [0.16.0](https://github.com/moq-dev/moq/compare/hang-v0.15.8...hang-v0.16.0) - 2026-05-07
+
+### Other
+
+- moq-mux backport + dual-API cleanup ([#1341](https://github.com/moq-dev/moq/pull/1341))
+- Revert moq-lite FETCH/Subscription API changes ([#1372](https://github.com/moq-dev/moq/pull/1372))
+- add fetch_group API + TrackDynamic ([#1357](https://github.com/moq-dev/moq/pull/1357))
+- backport Subscription model API for FETCH readiness ([#1348](https://github.com/moq-dev/moq/pull/1348))
+- hop-based clustering ([#1322](https://github.com/moq-dev/moq/pull/1322))
+
+## [0.15.8](https://github.com/moq-dev/moq/compare/hang-v0.15.7...hang-v0.15.8) - 2026-04-19
+
+### Other
+
+- Add README files for Rust crates ([#1284](https://github.com/moq-dev/moq/pull/1284))
+- Clarify group delivery semantics with recv_group and next_group_ordered ([#1324](https://github.com/moq-dev/moq/pull/1324))
+
+## [0.15.7](https://github.com/moq-dev/moq/compare/hang-v0.15.6...hang-v0.15.7) - 2026-04-09
+
+### Other
+
+- Add automatic reconnection with exponential backoff ([#1246](https://github.com/moq-dev/moq/pull/1246))
+
+## [0.15.6](https://github.com/moq-dev/moq/compare/hang-v0.15.5...hang-v0.15.6) - 2026-04-03
+
+### Other
+
+- Auto-pause emulation when no viewers are watching ([#1201](https://github.com/moq-dev/moq/pull/1201))
+
+## [0.15.5](https://github.com/moq-dev/moq/compare/hang-v0.15.4...hang-v0.15.5) - 2026-04-03
+
+### Other
+
+- Add Markdown linting with remark configuration ([#1183](https://github.com/moq-dev/moq/pull/1183))
+- Add moq-relay release workflow and Nix cache configuration ([#1178](https://github.com/moq-dev/moq/pull/1178))
+
+## [0.15.4](https://github.com/moq-dev/moq/compare/hang-v0.15.3...hang-v0.15.4) - 2026-03-25
+
+### Other
+
+- Add generic ordered::Consumer/Producer to moq-mux ([#1155](https://github.com/moq-dev/moq/pull/1155))
+
+## [0.15.3](https://github.com/moq-dev/moq/compare/hang-v0.15.2...hang-v0.15.3) - 2026-03-18
+
+### Other
+
+- Remove unused dev-dependencies and bump @moq/qmux ([#1126](https://github.com/moq-dev/moq/pull/1126))
+
+## [0.15.2](https://github.com/moq-dev/moq/compare/hang-v0.15.1...hang-v0.15.2) - 2026-03-13
+
+### Other
+
+- Set MSRV to 1.85 (edition 2024) ([#1083](https://github.com/moq-dev/moq/pull/1083))
+- Fix OrderedConsumer... for good? ([#1054](https://github.com/moq-dev/moq/pull/1054))
+
+## [0.15.0](https://github.com/moq-dev/moq/compare/hang-v0.14.0...hang-v0.15.0) - 2026-03-03
+
+### Other
+
+- OrderedProducer API with max_group_duration ([#1007](https://github.com/moq-dev/moq/pull/1007))
+- Tweak the API to revert some breaking changes. ([#1036](https://github.com/moq-dev/moq/pull/1036))
+- Add some tests for the ordered consumer. ([#1029](https://github.com/moq-dev/moq/pull/1029))
+- Fix an infinite loop in OrderedConsumer ([#1027](https://github.com/moq-dev/moq/pull/1027))
+- Add moq-msf crate for MSF catalog support ([#993](https://github.com/moq-dev/moq/pull/993))
+- Make Encode trait fallible ([#1000](https://github.com/moq-dev/moq/pull/1000))
+- Replace tokio::sync::watch with custom Producer/Subscriber ([#996](https://github.com/moq-dev/moq/pull/996))
+
+## [0.14.0](https://github.com/moq-dev/moq/compare/hang-v0.13.1...hang-v0.14.0) - 2026-02-12
+
+### Other
+
+- Error cleanup ([#944](https://github.com/moq-dev/moq/pull/944))
+- Reduce the moq-lite API size ([#943](https://github.com/moq-dev/moq/pull/943))
+
+## [0.13.1](https://github.com/moq-dev/moq/compare/hang-v0.13.0...hang-v0.13.1) - 2026-02-09
+
+### Other
+
+- Fix video track naming to handle empty extensions ([#934](https://github.com/moq-dev/moq/pull/934))
+- native client integration guide ([#931](https://github.com/moq-dev/moq/pull/931))
+- Run unit tests in CI ([#921](https://github.com/moq-dev/moq/pull/921))
+
+## [0.12.0](https://github.com/moq-dev/moq/compare/hang-v0.11.0...hang-v0.12.0) - 2026-02-03
+
+### Other
+
+- Rename minBuffer to jitter ([#894](https://github.com/moq-dev/moq/pull/894))
+- Add support for multiple groups, and fetching them ([#877](https://github.com/moq-dev/moq/pull/877))
+- Tweak a few small things the AI merge missed. ([#876](https://github.com/moq-dev/moq/pull/876))
+- Remove Produce struct and simplify API ([#875](https://github.com/moq-dev/moq/pull/875))
+- Close audio groups immediately. ([#870](https://github.com/moq-dev/moq/pull/870))
+- CMAF passthrough attempt v3 ([#867](https://github.com/moq-dev/moq/pull/867))
+
+## [0.11.0](https://github.com/moq-dev/moq/compare/hang-v0.10.0...hang-v0.11.0) - 2026-01-24
+
+### Added
+
+- *(hang)* add feature flags for third-party dependencies ([#854](https://github.com/moq-dev/moq/pull/854))
+
+### Other
+
+- Add a builder pattern for constructing clients/servers ([#862](https://github.com/moq-dev/moq/pull/862))
+- Add #[non_exhaustive] to moq-native configuration. ([#850](https://github.com/moq-dev/moq/pull/850))
+- bump mp4-atom to 0.10.0 ([#846](https://github.com/moq-dev/moq/pull/846))
+- simplify match statements using let-else syntax ([#840](https://github.com/moq-dev/moq/pull/840))
+- upgrade to Rust edition 2024 ([#838](https://github.com/moq-dev/moq/pull/838))
+
 ## [0.10.0](https://github.com/moq-dev/moq/compare/hang-v0.9.1...hang-v0.10.0) - 2026-01-10
 
 ### Added

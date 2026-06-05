@@ -5,46 +5,19 @@ use std::sync::Arc;
 /// This enum represents all possible errors that can occur when working with
 /// hang media streams, codecs, and containers.
 #[derive(Debug, thiserror::Error, Clone)]
+#[non_exhaustive]
 pub enum Error {
 	/// An error from the underlying MoQ transport layer.
 	#[error("moq lite error: {0}")]
-	Moq(#[from] moq_lite::Error),
-
-	/// Failed to decode a message at the MoQ transport layer.
-	#[error("decode error: {0}")]
-	Decode(#[from] moq_lite::coding::DecodeError),
+	Moq(#[from] moq_net::Error),
 
 	/// JSON serialization/deserialization error.
 	#[error("json error: {0}")]
 	Json(Arc<serde_json::Error>),
 
-	/// Attempted to add a track that already exists in the catalog.
-	#[error("duplicate track")]
-	DuplicateTrack,
-
-	/// Referenced track was not found in the catalog.
-	#[error("missing track")]
-	MissingTrack,
-
-	/// The provided session ID is invalid or malformed.
-	#[error("invalid session ID")]
-	InvalidSession,
-
-	/// Attempted to process an empty group (no frames).
-	#[error("empty group")]
-	EmptyGroup,
-
 	/// The specified codec is invalid or malformed.
 	#[error("invalid codec")]
 	InvalidCodec,
-
-	/// The frame data is invalid or corrupted.
-	#[error("invalid frame")]
-	InvalidFrame,
-
-	/// The codec is not supported by this implementation.
-	#[error("unsupported codec")]
-	UnsupportedCodec,
 
 	/// Failed to parse an integer value.
 	#[error("expected int")]
@@ -56,7 +29,7 @@ pub enum Error {
 
 	/// The timestamp is too large.
 	#[error("timestamp overflow")]
-	TimestampOverflow(#[from] moq_lite::TimeOverflow),
+	TimestampOverflow(#[from] moq_net::TimeOverflow),
 
 	/// The track must start with a keyframe.
 	#[error("must start with a keyframe")]
@@ -66,17 +39,21 @@ pub enum Error {
 	#[error("timestamp went backwards")]
 	TimestampBackwards,
 
-	/// An error from the HTTP client.
-	#[cfg(feature = "hls")]
-	#[error("http error: {0}")]
-	Http(Arc<reqwest::Error>),
-
 	/// Failed to parse a URL.
 	#[error("url parse error: {0}")]
 	Url(#[from] url::ParseError),
 
+	/// A group contained zero frames.
+	#[error("empty group")]
+	EmptyGroup,
+
+	/// The format is not recognized.
 	#[error("unknown format: {0}")]
 	UnknownFormat(String),
+
+	/// A track with this name already exists in the catalog.
+	#[error("duplicate track: {0}")]
+	Duplicate(String),
 }
 
 /// A Result type alias for hang operations.
@@ -89,12 +66,5 @@ pub type Result<T> = std::result::Result<T, Error>;
 impl From<serde_json::Error> for Error {
 	fn from(err: serde_json::Error) -> Self {
 		Error::Json(Arc::new(err))
-	}
-}
-
-#[cfg(feature = "hls")]
-impl From<reqwest::Error> for Error {
-	fn from(err: reqwest::Error) -> Self {
-		Error::Http(Arc::new(err))
 	}
 }

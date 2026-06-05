@@ -1,24 +1,10 @@
-//! MoQ relay server connecting publishers to subscribers.
-//!
-//! Content-agnostic relay that works with any live data, not just media.
-//!
-//! Features:
-//! - Clustering: connect multiple relays for global distribution
-//! - Authentication: JWT-based access control via [`moq_token`]
-//! - WebSocket fallback: for restrictive networks
-//! - HTTP API: health checks and metrics via [`Web`]
+use moq_relay::*;
 
-mod auth;
-mod cluster;
-mod config;
-mod connection;
-mod web;
+use anyhow::Context;
 
-pub use auth::*;
-pub use cluster::*;
-pub use config::*;
-pub use connection::*;
-pub use web::*;
+#[cfg(feature = "jemalloc")]
+#[global_allocator]
+static ALLOC: moq_native::jemalloc::tikv_jemallocator::Jemalloc = moq_native::jemalloc::tikv_jemallocator::Jemalloc;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -28,28 +14,48 @@ async fn main() -> anyhow::Result<()> {
 		.install_default()
 		.expect("failed to install default crypto provider");
 
-	let config = Config::load()?;
+	let mut config = Config::load()?;
 
-	let addr = config.server.bind.unwrap_or("[::]:443".parse().unwrap());
-	let mut server = config.server.init()?;
+	config.client.max_streams.get_or_insert(DEFAULT_MAX_STREAMS);
+	config.server.max_streams.get_or_insert(DEFAULT_MAX_STREAMS);
+
+	let mtls_enabled = !config.server.tls.root.is_empty();
 
 	#[allow(unused_mut)]
-	let mut client = config.client.init()?;
+	let mut server = config.server.init()?;
+	let client = config.client.clone().init()?;
+
+	let addr = server.local_addr()?;
 
 	#[cfg(feature = "iroh")]
-	{
+	let (server, client) = {
 		let iroh = config.iroh.bind().await?;
-		server.with_iroh(iroh.clone());
-		client.with_iroh(iroh);
+		(server.with_iroh(iroh.clone()), client.with_iroh(iroh))
+	};
+
+	// Reject configs where neither JWT nor mTLS can authenticate anyone.
+	if config.auth.is_empty() {
+		anyhow::ensure!(
+			mtls_enabled,
+			"no auth-key, auth-key-dir, public path, or server tls.root configured; \
+			 nobody can authenticate"
+		);
+		tracing::warn!("no JWT/public auth configured; only mTLS peers will be accepted");
 	}
 
-	let auth = config.auth.init()?;
+	let auth = if config.auth.is_empty() {
+		Auth::default()
+	} else {
+		config.auth.init().await?
+	};
 
-	let cluster = Cluster::new(config.cluster, client);
-	let cloned = cluster.clone();
-	tokio::spawn(async move { cloned.run().await.expect("cluster failed") });
+	let cluster = Cluster::new(config.cluster)
+		.with_client(client)
+		.with_client_tls(config.client.tls.build()?);
+	let stats = config.stats.build(cluster.origin.clone());
+	let cluster = cluster.with_stats(stats);
 
-	// Create a web server too.
+	// Create a web server too. mTLS for HTTPS is opt-in via `--web-https-root`.
 	let web = Web::new(
 		WebState {
 			auth: auth.clone(),
@@ -60,16 +66,27 @@ async fn main() -> anyhow::Result<()> {
 		config.web,
 	);
 
-	tokio::spawn(async move {
-		web.run().await.expect("failed to run web server");
-	});
-
 	tracing::info!(%addr, "listening");
 
 	#[cfg(unix)]
 	// Notify systemd that we're ready after all initialization is complete
-	let _ = sd_notify::notify(true, &[sd_notify::NotifyState::Ready]);
+	let _ = sd_notify::notify(&[sd_notify::NotifyState::Ready]);
 
+	#[cfg(feature = "jemalloc")]
+	let jemalloc = moq_native::jemalloc::run();
+	#[cfg(not(feature = "jemalloc"))]
+	let jemalloc = std::future::pending::<anyhow::Result<()>>();
+
+	tokio::select! {
+		Err(err) = cluster.clone().run() => return Err(err).context("cluster failed"),
+		Err(err) = web.run() => return Err(err).context("web server failed"),
+		Err(err) = serve(server, cluster, auth) => return Err(err).context("server failed"),
+		Err(err) = jemalloc => return Err(err).context("jemalloc profiler failed"),
+		else => Ok(()),
+	}
+}
+
+async fn serve(mut server: moq_native::Server, cluster: Cluster, auth: Auth) -> anyhow::Result<()> {
 	let mut conn_id = 0;
 
 	while let Some(request) = server.accept().await {
@@ -82,12 +99,11 @@ async fn main() -> anyhow::Result<()> {
 
 		conn_id += 1;
 		tokio::spawn(async move {
-			let err = conn.run().await;
-			if let Err(err) = err {
+			if let Err(err) = conn.run().await {
 				tracing::warn!(%err, "connection closed");
 			}
 		});
 	}
 
-	Ok(())
+	anyhow::bail!("stopped accepting connections")
 }

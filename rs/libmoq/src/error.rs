@@ -13,14 +13,11 @@ pub type Status = i32;
 /// Each error variant maps to a specific negative error code
 /// returned to C callers.
 #[derive(Debug, thiserror::Error, Clone)]
+#[non_exhaustive]
 pub enum Error {
-	/// Resource was closed.
-	#[error("closed")]
-	Closed,
-
 	/// Error from the underlying MoQ protocol layer.
 	#[error("moq error: {0}")]
-	Moq(#[from] moq_lite::Error),
+	Moq(#[from] moq_net::Error),
 
 	/// URL parsing error.
 	#[error("url error: {0}")]
@@ -46,6 +43,42 @@ pub enum Error {
 	#[error("not found")]
 	NotFound,
 
+	/// Session task not found.
+	#[error("session not found")]
+	SessionNotFound,
+
+	/// Origin producer not found.
+	#[error("origin not found")]
+	OriginNotFound,
+
+	/// Announcement not found.
+	#[error("announcement not found")]
+	AnnouncementNotFound,
+
+	/// Broadcast not found.
+	#[error("broadcast not found")]
+	BroadcastNotFound,
+
+	/// Catalog not found.
+	#[error("catalog not found")]
+	CatalogNotFound,
+
+	/// Media decoder not found.
+	#[error("media not found")]
+	MediaNotFound,
+
+	/// Track task not found.
+	#[error("track not found")]
+	TrackNotFound,
+
+	/// Group producer not found.
+	#[error("group not found")]
+	GroupNotFound,
+
+	/// Frame not found.
+	#[error("frame not found")]
+	FrameNotFound,
+
 	/// Unknown media format specified.
 	#[error("unknown format: {0}")]
 	UnknownFormat(String),
@@ -60,7 +93,7 @@ pub enum Error {
 
 	/// Timestamp value overflow.
 	#[error("timestamp overflow")]
-	TimestampOverflow(#[from] moq_lite::TimeOverflow),
+	TimestampOverflow(#[from] moq_net::TimeOverflow),
 
 	/// Log level parsing error.
 	#[error("level error: {0}")]
@@ -82,6 +115,10 @@ pub enum Error {
 	#[error("hang error: {0}")]
 	Hang(#[from] hang::Error),
 
+	/// Error from the moq-mux consumer layer.
+	#[error("mux error: {0}")]
+	Mux(Arc<moq_mux::Error>),
+
 	/// Index out of bounds.
 	#[error("no index")]
 	NoIndex,
@@ -89,6 +126,16 @@ pub enum Error {
 	/// Null byte found in C string.
 	#[error("nul error")]
 	NulError(#[from] std::ffi::NulError),
+
+	/// Error from the moq-audio codec layer.
+	#[error("audio error: {0}")]
+	Audio(Arc<moq_audio::AudioError>),
+}
+
+impl From<moq_audio::AudioError> for Error {
+	fn from(err: moq_audio::AudioError) -> Self {
+		Error::Audio(Arc::new(err))
+	}
 }
 
 impl From<tracing::metadata::ParseLevelError> for Error {
@@ -97,11 +144,20 @@ impl From<tracing::metadata::ParseLevelError> for Error {
 	}
 }
 
+impl From<moq_mux::Error> for Error {
+	fn from(err: moq_mux::Error) -> Self {
+		match err {
+			moq_mux::Error::Moq(e) => Error::Moq(e),
+			moq_mux::Error::Hang(e) => Error::Hang(e),
+			e => Error::Mux(Arc::new(e)),
+		}
+	}
+}
+
 impl ffi::ReturnCode for Error {
 	fn code(&self) -> i32 {
 		tracing::error!("{}", self);
 		match self {
-			Error::Closed => -1,
 			Error::Moq(_) => -2,
 			Error::Url(_) => -3,
 			Error::Utf8(_) => -4,
@@ -120,6 +176,17 @@ impl ffi::ReturnCode for Error {
 			Error::Hang(_) => -18,
 			Error::NoIndex => -19,
 			Error::NulError(_) => -20,
+			Error::SessionNotFound => -21,
+			Error::OriginNotFound => -22,
+			Error::AnnouncementNotFound => -23,
+			Error::BroadcastNotFound => -24,
+			Error::CatalogNotFound => -25,
+			Error::MediaNotFound => -26,
+			Error::TrackNotFound => -27,
+			Error::FrameNotFound => -28,
+			Error::Mux(_) => -29,
+			Error::Audio(_) => -30,
+			Error::GroupNotFound => -31,
 		}
 	}
 }

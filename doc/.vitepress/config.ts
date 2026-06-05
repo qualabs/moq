@@ -5,64 +5,233 @@ export default defineConfig({
 	description: "Real-time latency at massive scale",
 	base: "/",
 
-	head: [["link", { rel: "icon", href: "/icon.svg", type: "image/svg+xml" }]],
+	head: [
+		["link", { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" }],
+		["meta", { property: "og:type", content: "website" }],
+		["meta", { property: "og:title", content: "Media over QUIC" }],
+		[
+			"meta",
+			{
+				property: "og:description",
+				content: "Real-time latency at massive scale",
+			},
+		],
+		["meta", { property: "og:image", content: "https://doc.moq.dev/icon.png" }],
+		["meta", { property: "og:image:width", content: "163" }],
+		["meta", { property: "og:image:height", content: "150" }],
+		["meta", { property: "og:url", content: "https://doc.moq.dev" }],
+		["meta", { property: "og:site_name", content: "Media over QUIC" }],
+		["meta", { name: "twitter:card", content: "summary_large_image" }],
+		["meta", { name: "twitter:title", content: "Media over QUIC" }],
+		[
+			"meta",
+			{
+				name: "twitter:description",
+				content: "Real-time latency at massive scale",
+			},
+		],
+		["meta", { name: "twitter:image", content: "https://doc.moq.dev/icon.png" }],
+		["meta", { name: "theme-color", content: "#0f172a" }],
+	],
 
 	appearance: "force-dark",
 
 	themeConfig: {
-		logo: "/icon.svg",
+		logo: "/favicon.svg",
 
 		nav: [
 			{ text: "Setup", link: "/setup/" },
-			{ text: "Concepts", link: "/concepts/" },
-			{ text: "API", link: "/api/" },
+			{ text: "Concepts", link: "/concept/" },
+			{ text: "Apps", link: "/bin/" },
+			{
+				text: "Libraries",
+				link: "/lib/",
+				items: [
+					{ text: "Rust", link: "/lib/rs/" },
+					{ text: "TypeScript", link: "/lib/js/" },
+					{ text: "C", link: "/lib/c/" },
+					{ text: "Python", link: "/lib/py/" },
+					{ text: "Kotlin", link: "/lib/kt/" },
+					{ text: "Swift", link: "/lib/swift/" },
+					{ text: "Go", link: "/lib/go/" },
+				],
+			},
 		],
 
 		sidebar: {
 			"/setup/": [
 				{
 					text: "Setup",
+					link: "/setup/",
 					items: [
-						{ text: "Quick Start", link: "/setup/" },
-						{ text: "Development", link: "/setup/development" },
-						{ text: "Production", link: "/setup/production" },
+						{ text: "Development", link: "/setup/dev" },
+						{ text: "Production", link: "/setup/prod" },
+						{ text: "Linux Packages", link: "/setup/linux" },
+					],
+				},
+				{
+					text: "Demos",
+					items: [
+						{ text: "Web", link: "/setup/demo/web" },
+						{ text: "MoQ Boy", link: "/setup/demo/boy" },
 					],
 				},
 			],
 
-			"/concepts/": [
+			"/concept/": [
 				{
 					text: "Concepts",
+					link: "/concept/",
 					items: [
-						{ text: "Layers", link: "/concepts/" },
-						{ text: "Latency", link: "/concepts/latency" },
-						{ text: "Standards", link: "/concepts/standards" },
+						{
+							text: "Layers",
+							link: "/concept/layer/",
+							items: [
+								{ text: "quic", link: "/concept/layer/quic" },
+								{ text: "web-transport", link: "/concept/layer/web-transport" },
+								{ text: "web-socket", link: "/concept/layer/web-socket" },
+								{ text: "moq-lite", link: "/concept/layer/moq-lite" },
+								{ text: "hang", link: "/concept/layer/hang" },
+							],
+						},
+						{
+							text: "Standards",
+							link: "/concept/standard/",
+							items: [
+								{ text: "MoqTransport", link: "/concept/standard/moq-transport" },
+								{ text: "MSF", link: "/concept/standard/msf" },
+								{ text: "LOC", link: "/concept/standard/loc" },
+								{ text: "Interop", link: "/concept/standard/interop" },
+							],
+						},
+						{
+							text: "Use Cases",
+							link: "/concept/use-case/",
+							items: [
+								{ text: "Contribution", link: "/concept/use-case/contribution" },
+								{ text: "Distribution", link: "/concept/use-case/distribution" },
+								{ text: "Conferencing", link: "/concept/use-case/conferencing" },
+								{ text: "AI", link: "/concept/use-case/ai" },
+								{ text: "Other", link: "/concept/use-case/other" },
+							],
+						},
 					],
 				},
 			],
 
-			"/rust/": [
+			"/bin/": [
 				{
-					text: "Rust Libraries",
+					text: "Applications",
+					link: "/bin/",
 					items: [
-						{ text: "Overview", link: "/rust/" },
-						{ text: "moq-lite", link: "/rust/moq-lite" },
-						{ text: "hang", link: "/rust/hang" },
-						{ text: "moq-relay", link: "/rust/moq-relay" },
-						{ text: "Examples", link: "/rust/examples" },
+						{
+							text: "Relay",
+							link: "/bin/relay/",
+							items: [
+								{ text: "Configuration", link: "/bin/relay/config" },
+								{ text: "Authentication", link: "/bin/relay/auth" },
+								{ text: "Clustering", link: "/bin/relay/cluster" },
+								{ text: "HTTP", link: "/bin/relay/http" },
+								{ text: "Production", link: "/bin/relay/prod" },
+							],
+						},
+						{ text: "CLI", link: "/bin/cli" },
+						{ text: "OBS", link: "/bin/obs" },
+						{ text: "GStreamer", link: "/bin/gstreamer" },
+						{ text: "Web", link: "/bin/web" },
 					],
 				},
 			],
 
-			"/typescript/": [
+			"/lib/": [
 				{
-					text: "TypeScript Libraries",
+					text: "Libraries",
+					link: "/lib/",
 					items: [
-						{ text: "Overview", link: "/typescript/" },
-						{ text: "@moq/lite", link: "/typescript/lite" },
-						{ text: "@moq/hang", link: "/typescript/hang" },
-						{ text: "Web Components", link: "/typescript/web-components" },
-						{ text: "Examples", link: "/typescript/examples" },
+						{
+							text: "Rust",
+							link: "/lib/rs/",
+							items: [
+								{
+									text: "Environments",
+									link: "/lib/rs/env/",
+									items: [
+										{ text: "Native", link: "/lib/rs/env/native" },
+										{ text: "WASM", link: "/lib/rs/env/wasm" },
+									],
+								},
+								{
+									text: "Crates",
+									link: "/lib/rs/crate",
+									items: [
+										{ text: "moq-net", link: "/lib/rs/crate/moq-net" },
+										{ text: "moq-native", link: "/lib/rs/crate/moq-native" },
+										{ text: "moq-token", link: "/lib/rs/crate/moq-token" },
+										{ text: "hang", link: "/lib/rs/crate/hang" },
+										{ text: "web-transport", link: "/lib/rs/crate/web-transport" },
+										{ text: "libmoq", link: "/lib/rs/crate/libmoq" },
+									],
+								},
+							],
+						},
+						{
+							text: "TypeScript",
+							link: "/lib/js/",
+							items: [
+								{
+									text: "Environments",
+									link: "/lib/js/env/",
+									items: [
+										{ text: "Web", link: "/lib/js/env/web" },
+										{ text: "Native", link: "/lib/js/env/native" },
+									],
+								},
+								{
+									text: "Packages",
+									link: "/lib/js/@moq",
+									items: [
+										{ text: "@moq/net", link: "/lib/js/@moq/net" },
+										{
+											text: "@moq/hang",
+											link: "/lib/js/@moq/hang/",
+											items: [
+												{ text: "Watch", link: "/lib/js/@moq/hang/watch" },
+												{ text: "Publish", link: "/lib/js/@moq/hang/publish" },
+											],
+										},
+										{ text: "@moq/watch", link: "/lib/js/@moq/watch" },
+										{ text: "@moq/publish", link: "/lib/js/@moq/publish" },
+										{ text: "@moq/token", link: "/lib/js/@moq/token" },
+										{ text: "@moq/signals", link: "/lib/js/@moq/signals" },
+									],
+								},
+							],
+						},
+						{
+							text: "C",
+							link: "/lib/c/",
+							items: [{ text: "libmoq", link: "/lib/rs/crate/libmoq" }],
+						},
+						{
+							text: "Python",
+							link: "/lib/py/",
+							items: [{ text: "moq-rs", link: "/lib/py/moq-rs" }],
+						},
+						{
+							text: "Kotlin",
+							link: "/lib/kt/",
+							items: [{ text: "dev.moq:moq", link: "/lib/kt/moq" }],
+						},
+						{
+							text: "Swift",
+							link: "/lib/swift/",
+							items: [{ text: "Moq", link: "/lib/swift/moq" }],
+						},
+						{
+							text: "Go",
+							link: "/lib/go/",
+							items: [{ text: "moq", link: "/lib/go/moq" }],
+						},
 					],
 				},
 			],
@@ -74,7 +243,7 @@ export default defineConfig({
 		],
 
 		editLink: {
-			pattern: "https://github.com/moq-dev/moq/edit/main/docs/:path",
+			pattern: "https://github.com/moq-dev/moq/edit/main/doc/:path",
 			text: "Edit this page on GitHub",
 		},
 
@@ -88,7 +257,7 @@ export default defineConfig({
 
 		footer: {
 			message: "Licensed under MIT or Apache-2.0",
-			copyright: "Copyright © 2025-present MoQ Contributors",
+			copyright: "Copyright © 2026-present moq.dev",
 		},
 	},
 
@@ -97,6 +266,8 @@ export default defineConfig({
 		lineNumbers: true,
 	},
 
-	// TODO: Remove this
-	ignoreDeadLinks: true,
+	ignoreDeadLinks: [
+		// Localhost URLs are intentional for development
+		"http://localhost:5173",
+	],
 });

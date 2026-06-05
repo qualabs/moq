@@ -4,45 +4,78 @@
 It's designed to be run in a datacenter, relaying media across multiple hops to deduplicate and improve QoS.
 
 The only argument is the path to a TOML configuration file.
-See [relay.toml](../dev/relay.toml) for an example configuration.
+See [localhost.toml](https://github.com/moq-dev/moq/blob/main/demo/relay/localhost.toml) for an example configuration.
+
+## Install
+
+### Debian / Ubuntu
+
+```bash
+curl -fsSL https://apt.moq.dev/moq-archive-keyring.gpg \
+  | sudo tee /usr/share/keyrings/moq-archive-keyring.gpg > /dev/null
+echo "deb [signed-by=/usr/share/keyrings/moq-archive-keyring.gpg] https://apt.moq.dev stable main" \
+  | sudo tee /etc/apt/sources.list.d/moq.list
+sudo apt update && sudo apt install moq-relay
+```
+
+The package drops a `moq-relay.service` systemd unit and an
+`/etc/moq-relay/relay.toml` config file. See
+[Linux Installation](https://doc.moq.dev/setup/linux) for the full
+walkthrough.
+
+### Fedora / RHEL / Rocky / AlmaLinux
+
+```bash
+sudo dnf config-manager --add-repo https://rpm.moq.dev/moq.repo
+sudo dnf install moq-relay
+```
+
+### From crates.io
+
+```bash
+cargo install moq-relay
+```
+
+### Docker
+
+```bash
+docker pull moqdev/moq-relay
+```
+
+Multi-arch images (`linux/amd64` and `linux/arm64`) are published to [Docker Hub](https://hub.docker.com/r/moqdev/moq-relay).
 
 ## HTTP
+
 Primarily for debugging, you can also connect to the relay via HTTP.
 
--  `GET /certificate.sha256`: Returns the fingerprint of the TLS certificate.
--  `GET /announced/*prefix`: Returns all of the announced tracks with the given (optional) prefix.
--  `GET /fetch/*path`: Returns the latest group of the given track.
+- `GET /certificate.sha256`: Returns the fingerprint of the TLS certificate.
+- `GET /announced/*prefix`: Returns all of the announced tracks with the given (optional) prefix.
+- `GET /fetch/*path`: Returns the latest group of the given track.
 
 The HTTP server listens on the same bind address, but TCP instead of UDP.
 The default is `http://localhost:4443`.
 HTTPS is currently not supported.
 
 ## Clustering
-In order to scale MoQ, you will eventually need to run multiple moq-relay instances potentially in different regions.
-This is called *clustering*, where the goal is that a user connects to the closest relay and they magically form a mesh behind the scenes.
 
-**moq-relay** uses a simple clustering scheme using moq-lite.
-This is both dog-fooding and a surprisingly ueeful way to distribute live metadata at scale.
+Relays can be joined together to proxy announcements and subscriptions. A viewer talks to whichever relay is closest; if their broadcast lives elsewhere in the cluster, the local relay fetches it from a neighbor and caches it. Hop tracking on every broadcast keeps loops out and picks the shortest path when there's more than one.
 
-We currently use a single "root" node that is used to discover members of the cluster and what broadcasts they offer.
-This is a normal moq-relay instance, potentially serving public traffic, unaware of the fact that it's in charge of other relays.
+- `--cluster-connect <peer-url>` lists the peers this relay dials. Repeatable; defines the topology by hand. A simple chain like `eu-west <- us-east <- us-west` lets `us-east` cache and dedup the transatlantic fetches that fan out to many `us-west` viewers.
+- `--cluster-mesh <self-url>` is optional. When set, this relay advertises its own URL to connected peers and dials any peers it learns about, so larger clusters don't need each node hand-configured. You still need at least one connection (in or out) so the advertisement has a path to flow. A relay with `--cluster-mesh` set and no `--cluster-connect` is a passive rendezvous.
 
-The other moq-relay instances accept internet traffic and consult the root for routing.
-They can then advertise their internal ip/hostname to other instances when publishing a broadcast.
+`--cluster-root` and `--cluster-node` from earlier versions were removed. The relay errors at startup if either is set and points at the replacements.
 
-Cluster arguments:
-
--   `--cluster-root <HOST>`: The hostname/ip of the root node. If missing, this node is a root.
--   `--cluster-node <HOST>`: The hostname/ip of this instance. There needs to be a corresponding valid TLS certificate, potentially self-signed. If missing, published broadcasts will only be available on this specific relay.
+See [doc/bin/relay/cluster.md](https://github.com/moq-dev/moq/blob/main/doc/bin/relay/cluster.md) for the full walkthrough, including topology trade-offs and authentication.
 
 ## Authentication
 
 The relay supports JWT-based authentication and authorization with path-based access control.
 
 For detailed authentication setup, including token generation and configuration examples, see:
-**[Authentication Documentation](../../docs/auth.md)**
+**[Authentication Documentation](https://github.com/moq-dev/moq/blob/main/doc/app/relay/auth.md)**
 
 Key features:
+
 - JWT tokens passed via query parameters (`?jwt=<token>`)
 - Path-based authorization with `root`, `pub`, and `sub` claims
 - Anonymous access support for public content
@@ -50,8 +83,9 @@ Key features:
 - Asymmetric key cryptography (RSASSA-PKCS1-SHA256/384/512, RSASSA-PSS-SHA256/384/512, ECDSA-SHA256/384, EdDSA)
 
 Quick example configuration in your `.toml` file:
+
 ```toml
 [auth]
-key = "dev/root.jwk"    # JWT signing key
+key = "demo/relay/root.jwk"    # JWT signing key (relative to working directory)
 public = "anon"         # Allow anonymous access to /anon prefix
 ```

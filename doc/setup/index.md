@@ -5,40 +5,46 @@ description: Get started with MoQ in seconds
 
 # Quick Start
 
-We've got a few demos to show off some basic MoQ goodness.
-Everything runs on localhost [in development](/setup/development), but [in production](/setup/production) you'll want to split the components across multiple hosts.
+We've got a few demos to show off MoQ in action.
+Everything runs on localhost in development, but in production of course you'll run these components across multiple hosts.
+
+Start by cloning the repo:
+
+```bash
+git clone https://github.com/moq-dev/moq
+cd moq
+```
+
+Then pick your poison: Nix or not.
 
 ## Option 1: Using Nix (Recommended)
 
 The recommended approach is to use [Nix](https://nixos.org/download.html).
-
-Give it a try!
-All dependencies are automatically downloaded, pinned to specific versions, and identical on CI and production.
+It's like Docker but without the VM; all dependencies are pinned to specific versions.
 
 Install the following:
+
 - [Nix](https://nixos.org/download.html)
 - [Nix Flakes](https://nixos.wiki/wiki/Flakes)
+- (optional) [Nix Direnv](https://github.com/nix-community/nix-direnv)
 
 Then run the demo:
-```bash
-# Runs the demo
-nix develop -c just dev
-```
-
-Want to make it easier? Install [nix-direnv](https://github.com/nix-community/nix-direnv), then you can simply run:
 
 ```bash
-# Once only: automatically uses nix-shell inside the repository.
-direnv allow
-
-# Runs the demo
-just dev
+# Runs the demo using pinned dependencies
+nix develop -c just
 ```
 
+If you install `direnv`, then the Nix shell will be loaded whenever you `cd` into the repo:
+
+```bash
+# Run the demo... in 9 keystrokes
+just
+```
 
 ## Option 2: Manual Installation
 
-If you prefer not to use Nix (or are a Windows fiend), then you can manually install the dependencies:
+If you don't like Nix or enjoy suffering with Windows, then you can manually install the dependencies:
 
 - [Just](https://github.com/casey/just)
 - [Rust](https://www.rust-lang.org/tools/install)
@@ -46,37 +52,46 @@ If you prefer not to use Nix (or are a Windows fiend), then you can manually ins
 - [FFmpeg](https://ffmpeg.org/download.html)
 - ...more?
 
+Some workspace crates have additional system dependencies and are excluded from the default build:
+
+- **moq-gst** — requires [GStreamer](https://gstreamer.freedesktop.org/) development libraries
+- **libmoq** — requires a C toolchain
+- **moq-ffi** — requires Python and [maturin](https://www.maturin.rs/)
+
+These are all included in the Nix dev shell. To build them manually, install the deps and use `cargo build -p <crate>`.
+
 Then run:
+
 ```bash
 # Install additional dependencies, usually linters
 just install
 
 # Run the demo
-just dev
+just
 ```
 
 When in doubt, check the [Nix Flake](https://github.com/moq-dev/moq/blob/main/flake.nix) for the full list of dependencies.
 
 ## What's Happening?
 
-The `just dev` command starts three components:
+The `just` command starts three components:
 
-1. `moq-relay`: A server that routes live data between publishers and subscribers.
-2. `hang-cli`: A tool that publishes video content, in this case the classic "Big Buck Bunny".
-3. `hang-demo`: A web page with various demos, including a video player.
+- [moq-relay](/bin/relay/): A server that routes live data between publishers and subscribers.
+- [moq-cli](/bin/cli): A CLI that publishes video content piped from `ffmpeg`.
+- [demo](/lib/js/@moq/demo): A web page with various demos.
 
-Once everything compiles, it should open [https://localhost:5173](localhost:5173) in your browser.
-See the [development setup](/setup/development) guide for more cool things you can do.
+Once everything compiles, it should open [localhost:5173](http://localhost:5173) in your browser.
 
 ::: warning
 The demo uses an insecure HTTP fetch for local development only. In production, you'll need a proper domain and TLS certificate via [LetsEncrypt](https://letsencrypt.org/docs/) or similar.
 :::
 
-## What's Next?
-If you want to run this stuff in production, you should have separate hosts for the three components.
+### More Demos
 
-1. `moq-relay` can be run on any host(s) with a public IP address and an open UDP port.
-2. `hang-cli` can be run by any publisher client.
-3. `hang-demo` can be hosted on any web server or cloud provider.
+- [Web Demo](/setup/demo/web) — watch and publish live streams from a browser
+- [MoQ Boy](/setup/demo/boy) — crowd-controlled Game Boy Color streaming with live video, audio, and anarchy-mode input
 
-Check out the full guide for [deploying to production](/setup/production).
+Check out the full [development guide](/setup/dev) for more commands, or try publishing to the public relay:
+
+- [OBS](/bin/obs)
+- [GStreamer](/bin/gstreamer)

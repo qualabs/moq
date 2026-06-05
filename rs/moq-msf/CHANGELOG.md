@@ -1,0 +1,32 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+## [0.2.0](https://github.com/moq-dev/moq/compare/moq-msf-v0.1.3...moq-msf-v0.2.0) - 2026-05-23
+
+### Added
+
+- Unified CMSF/Hang pipeline (cleanup of #1429) ([#1444](https://github.com/moq-dev/moq/pull/1444))
+
+## [0.1.3](https://github.com/moq-dev/moq/compare/moq-msf-v0.1.2...moq-msf-v0.1.3) - 2026-04-19
+
+### Other
+
+- Add README files for Rust crates ([#1284](https://github.com/moq-dev/moq/pull/1284))
+
+## [0.1.2](https://github.com/moq-dev/moq/compare/moq-msf-v0.1.1...moq-msf-v0.1.2) - 2026-04-03
+
+### Other
+
+- Add moq-relay release workflow and Nix cache configuration ([#1178](https://github.com/moq-dev/moq/pull/1178))
+
+## [0.1.1](https://github.com/moq-dev/moq/compare/moq-msf-v0.1.0...moq-msf-v0.1.1) - 2026-03-13
+
+### Other
+
+- Set MSRV to 1.85 (edition 2024) ([#1083](https://github.com/moq-dev/moq/pull/1083))

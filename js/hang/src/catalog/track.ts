@@ -1,7 +1,6 @@
-import { z } from "zod";
+import * as z from "zod/mini";
 
 export const TrackSchema = z.object({
 	name: z.string(),
-	priority: z.number().int().min(0).max(255),
 });
 export type Track = z.infer<typeof TrackSchema>;
