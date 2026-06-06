@@ -20,11 +20,23 @@ static RUNTIME: LazyLock<tokio::runtime::Runtime> = LazyLock::new(|| {
 		.expect("spawn tokio runtime")
 });
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 struct Settings {
 	url: Option<String>,
 	broadcast: Option<String>,
 	tls_disable_verify: bool,
+	max_latency_ms: u64,
+}
+
+impl Default for Settings {
+	fn default() -> Self {
+		Self {
+			url: None,
+			broadcast: None,
+			tls_disable_verify: false,
+			max_latency_ms: 1000,
+		}
+	}
 }
 
 #[derive(Debug, Clone)]
@@ -32,6 +44,7 @@ struct ResolvedSettings {
 	url: url::Url,
 	broadcast: String,
 	tls_disable_verify: bool,
+	max_latency: Duration,
 }
 
 impl TryFrom<Settings> for ResolvedSettings {
@@ -46,6 +59,7 @@ impl TryFrom<Settings> for ResolvedSettings {
 				.context("broadcast property is required")?
 				.clone(),
 			tls_disable_verify: value.tls_disable_verify,
+			max_latency: Duration::from_millis(value.max_latency_ms),
 		})
 	}
 }
@@ -183,6 +197,13 @@ impl ObjectImpl for MoqSrc {
 					.blurb("Disable TLS certificate verification")
 					.default_value(false)
 					.build(),
+				glib::ParamSpecUInt64::builder("max-latency-ms")
+					.nick("Max Latency (ms)")
+					.blurb("Drop groups older than this when the buffer span exceeds it")
+					.default_value(1000)
+					.minimum(0)
+					.maximum(u32::MAX as u64)
+					.build(),
 			]
 		});
 		PROPS.as_ref()
@@ -194,6 +215,7 @@ impl ObjectImpl for MoqSrc {
 			"url" => settings.url = value.get().unwrap(),
 			"broadcast" => settings.broadcast = value.get().unwrap(),
 			"tls-disable-verify" => settings.tls_disable_verify = value.get().unwrap(),
+			"max-latency-ms" => settings.max_latency_ms = value.get().unwrap(),
 			_ => unreachable!(),
 		}
 	}
@@ -204,6 +226,7 @@ impl ObjectImpl for MoqSrc {
 			"url" => settings.url.to_value(),
 			"broadcast" => settings.broadcast.to_value(),
 			"tls-disable-verify" => settings.tls_disable_verify.to_value(),
+			"max-latency-ms" => settings.max_latency_ms.to_value(),
 			_ => unreachable!(),
 		}
 	}
@@ -448,7 +471,7 @@ async fn run_session(
 		let track_ref = moq_net::Track::new(&track_name);
 		let track_consumer = broadcast.subscribe_track(&track_ref)?;
 		let track = moq_mux::container::Consumer::new(track_consumer, moq_mux::catalog::hang::Container::Legacy)
-			.with_latency(Duration::from_secs(1));
+			.with_latency(settings.max_latency);
 		tasks.push(spawn_track_pump(track, descriptor, endpoint, shutdown.clone()));
 	}
 
@@ -462,7 +485,7 @@ async fn run_session(
 		let track_ref = moq_net::Track::new(&track_name);
 		let track_consumer = broadcast.subscribe_track(&track_ref)?;
 		let track = moq_mux::container::Consumer::new(track_consumer, moq_mux::catalog::hang::Container::Legacy)
-			.with_latency(Duration::from_secs(1));
+			.with_latency(settings.max_latency);
 		tasks.push(spawn_track_pump(track, descriptor, endpoint, shutdown.clone()));
 	}
 
