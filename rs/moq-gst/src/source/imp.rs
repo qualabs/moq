@@ -482,7 +482,13 @@ async fn run_session(
 		let track_consumer = broadcast.subscribe_track(&track_ref)?;
 		let track = moq_mux::container::Consumer::new(track_consumer, moq_mux::catalog::hang::Container::Legacy)
 			.with_latency(settings.max_latency);
-		tasks.push(spawn_track_pump(track, descriptor, endpoint, shutdown.clone(), latency.clone()));
+		tasks.push(spawn_track_pump(
+			track,
+			descriptor,
+			endpoint,
+			shutdown.clone(),
+			latency.clone(),
+		));
 	}
 
 	for (track_name, config) in catalog.audio.renditions {
@@ -496,7 +502,13 @@ async fn run_session(
 		let track_consumer = broadcast.subscribe_track(&track_ref)?;
 		let track = moq_mux::container::Consumer::new(track_consumer, moq_mux::catalog::hang::Container::Legacy)
 			.with_latency(settings.max_latency);
-		tasks.push(spawn_track_pump(track, descriptor, endpoint, shutdown.clone(), latency.clone()));
+		tasks.push(spawn_track_pump(
+			track,
+			descriptor,
+			endpoint,
+			shutdown.clone(),
+			latency.clone(),
+		));
 	}
 
 	let _ = control_tx.send(ControlMessage::NoMorePads);
