@@ -88,7 +88,7 @@ impl MoqBroadcastConsumer {
 	/// `max_latency_ms` controls the maximum buffering before skipping a GoP.
 	pub fn subscribe_media(&self, name: String, max_latency_ms: u64) -> Result<Arc<MoqMediaConsumer>, MoqError> {
 		let _guard = crate::ffi::RUNTIME.enter();
-		let track = self.inner.subscribe_track(&moq_lite::Track { name, priority: 0 })?;
+		let track = self.inner.subscribe_track(&moq_lite::Track { name, priority: 0, ordered: false })?;
 		let latency = std::time::Duration::from_millis(max_latency_ms);
 		let consumer = hang::container::OrderedConsumer::new(track, latency);
 		Ok(Arc::new(MoqMediaConsumer {

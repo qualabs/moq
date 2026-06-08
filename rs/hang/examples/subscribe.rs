@@ -74,6 +74,7 @@ async fn run_subscribe(mut consumer: moq_lite::OriginConsumer) -> anyhow::Result
 	let track = moq_lite::Track {
 		name: name.clone(),
 		priority: 1,
+		ordered: false,
 	};
 
 	let track_consumer = broadcast.subscribe_track(&track)?;

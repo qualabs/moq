@@ -32,6 +32,8 @@ const MAX_GROUP_AGE: Duration = Duration::from_secs(30);
 pub struct Track {
 	pub name: String,
 	pub priority: u8,
+	#[cfg_attr(feature = "serde", serde(default))]
+	pub ordered: bool,
 }
 
 impl Track {
@@ -39,6 +41,7 @@ impl Track {
 		Self {
 			name: name.into(),
 			priority: 0,
+			ordered: false,
 		}
 	}
 

@@ -219,7 +219,8 @@ impl Consume {
 
 		let track = consume.broadcast.subscribe_track(&moq_lite::Track {
 			name: rendition.clone(),
-			priority: 1, // TODO: Remove priority
+			priority: 1,
+			ordered: false,
 		})?;
 		let track = hang::container::OrderedConsumer::new(track, latency);
 
@@ -263,7 +264,8 @@ impl Consume {
 
 		let track = consume.broadcast.subscribe_track(&moq_lite::Track {
 			name: rendition.clone(),
-			priority: 2, // TODO: Remove priority
+			priority: 2,
+			ordered: false,
 		})?;
 		let track = hang::container::OrderedConsumer::new(track, latency);
 

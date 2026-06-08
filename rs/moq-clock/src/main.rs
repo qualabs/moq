@@ -56,6 +56,7 @@ async fn main() -> anyhow::Result<()> {
 	let track = Track {
 		name: config.track,
 		priority: 0,
+		ordered: false,
 	};
 
 	let origin = moq_lite::Origin::produce();

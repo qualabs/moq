@@ -189,7 +189,7 @@ impl<S: web_transport_trait::Session> Subscriber<S> {
 			broadcast: broadcast.to_owned(),
 			track: (&track.info.name).into(),
 			priority: track.info.priority,
-			ordered: true,
+			ordered: track.info.ordered,
 			max_latency: std::time::Duration::ZERO,
 			start_group: None,
 			end_group: None,

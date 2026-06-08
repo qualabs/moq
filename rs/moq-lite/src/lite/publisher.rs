@@ -263,6 +263,7 @@ impl<S: web_transport_trait::Session> Publisher<S> {
 		let track = Track {
 			name: subscribe.track.to_string(),
 			priority: subscribe.priority,
+			ordered: subscribe.ordered,
 		};
 
 		let broadcast = consumer.ok_or(Error::NotFound)?;
@@ -272,7 +273,7 @@ impl<S: web_transport_trait::Session> Publisher<S> {
 
 		let info = lite::SubscribeOk {
 			priority: track.info.priority,
-			ordered: false,
+			ordered: subscribe.ordered,
 			max_latency: std::time::Duration::ZERO,
 			start_group: None,
 			end_group: None,
@@ -322,7 +323,7 @@ impl<S: web_transport_trait::Session> Publisher<S> {
 				sequence,
 			};
 
-			let priority = priority.insert(track.info.priority, sequence);
+			let priority = priority.insert(track.info.priority, sequence, subscribe.ordered);
 			tasks.push(Self::serve_group(session.clone(), msg, priority, group, version).map(|_| ()));
 		}
 	}
