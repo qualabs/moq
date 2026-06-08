@@ -130,15 +130,17 @@ struct PadHandle {
 
 struct SessionController {
 	shutdown: watch::Sender<bool>,
+	latency: watch::Sender<Duration>,
 	join: tokio::task::JoinHandle<()>,
 }
 
 impl SessionController {
 	fn start(settings: ResolvedSettings, control_tx: mpsc::UnboundedSender<ControlMessage>) -> Self {
 		let (shutdown_tx, mut shutdown_rx) = watch::channel(false);
+		let (latency_tx, latency_rx) = watch::channel(settings.max_latency);
 		let control_for_error = control_tx.clone();
 		let join = RUNTIME.spawn(async move {
-			let result = run_session(settings, control_tx, &mut shutdown_rx).await;
+			let result = run_session(settings, control_tx, &mut shutdown_rx, latency_rx).await;
 			if let Err(err) = result {
 				let _ = control_for_error.send(ControlMessage::ReportError(err));
 			}
@@ -146,6 +148,7 @@ impl SessionController {
 
 		Self {
 			shutdown: shutdown_tx,
+			latency: latency_tx,
 			join,
 		}
 	}
@@ -215,7 +218,13 @@ impl ObjectImpl for MoqSrc {
 			"url" => settings.url = value.get().unwrap(),
 			"broadcast" => settings.broadcast = value.get().unwrap(),
 			"tls-disable-verify" => settings.tls_disable_verify = value.get().unwrap(),
-			"max-latency-ms" => settings.max_latency_ms = value.get().unwrap(),
+			"max-latency-ms" => {
+				let ms: u64 = value.get().unwrap();
+				settings.max_latency_ms = ms;
+				if let Some(session) = self.session.lock().unwrap().as_ref() {
+					let _ = session.latency.send(Duration::from_millis(ms));
+				}
+			}
 			_ => unreachable!(),
 		}
 	}
@@ -436,6 +445,7 @@ async fn run_session(
 	settings: ResolvedSettings,
 	control_tx: mpsc::UnboundedSender<ControlMessage>,
 	shutdown: &mut watch::Receiver<bool>,
+	latency: watch::Receiver<Duration>,
 ) -> Result<()> {
 	let mut config = moq_native::ClientConfig::default();
 	config.tls.disable_verify = Some(settings.tls_disable_verify);
@@ -472,7 +482,7 @@ async fn run_session(
 		let track_consumer = broadcast.subscribe_track(&track_ref)?;
 		let track = moq_mux::container::Consumer::new(track_consumer, moq_mux::catalog::hang::Container::Legacy)
 			.with_latency(settings.max_latency);
-		tasks.push(spawn_track_pump(track, descriptor, endpoint, shutdown.clone()));
+		tasks.push(spawn_track_pump(track, descriptor, endpoint, shutdown.clone(), latency.clone()));
 	}
 
 	for (track_name, config) in catalog.audio.renditions {
@@ -486,7 +496,7 @@ async fn run_session(
 		let track_consumer = broadcast.subscribe_track(&track_ref)?;
 		let track = moq_mux::container::Consumer::new(track_consumer, moq_mux::catalog::hang::Container::Legacy)
 			.with_latency(settings.max_latency);
-		tasks.push(spawn_track_pump(track, descriptor, endpoint, shutdown.clone()));
+		tasks.push(spawn_track_pump(track, descriptor, endpoint, shutdown.clone(), latency.clone()));
 	}
 
 	let _ = control_tx.send(ControlMessage::NoMorePads);
@@ -521,8 +531,9 @@ fn spawn_track_pump(
 	descriptor: TrackDescriptor,
 	pad_endpoint: PadEndpoint,
 	shutdown: watch::Receiver<bool>,
+	latency: watch::Receiver<Duration>,
 ) -> tokio::task::JoinHandle<()> {
-	RUNTIME.spawn(run_track_pump(track, descriptor, pad_endpoint, shutdown))
+	RUNTIME.spawn(run_track_pump(track, descriptor, pad_endpoint, shutdown, latency))
 }
 
 async fn run_track_pump(
@@ -530,6 +541,7 @@ async fn run_track_pump(
 	descriptor: TrackDescriptor,
 	pad_endpoint: PadEndpoint,
 	mut shutdown: watch::Receiver<bool>,
+	mut latency: watch::Receiver<Duration>,
 ) {
 	let mut reference_ts = None;
 	loop {
@@ -537,6 +549,9 @@ async fn run_track_pump(
 			_ = shutdown.changed() => {
 				pad_endpoint.send(PadMessage::Drop);
 				break;
+			}
+			_ = latency.changed() => {
+				track.set_latency(*latency.borrow());
 			}
 			frame = track.read() => {
 				match frame {
