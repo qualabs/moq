@@ -373,6 +373,7 @@ impl<S: web_transport_trait::Session> Publisher<S> {
 		let track = Track {
 			name: subscribe.track.to_string(),
 			priority: subscribe.priority,
+			ordered: subscribe.ordered,
 		};
 
 		let broadcast = consumer.ok_or(Error::NotFound)?;
@@ -386,7 +387,7 @@ impl<S: web_transport_trait::Session> Publisher<S> {
 
 		let info = lite::SubscribeOk {
 			priority: track.priority,
-			ordered: false,
+			ordered: subscribe.ordered,
 			max_latency: std::time::Duration::ZERO,
 			start_group: None,
 			end_group: None,
@@ -456,7 +457,7 @@ impl<S: web_transport_trait::Session> Publisher<S> {
 
 			// Use the latest priority for new groups so SUBSCRIBE_UPDATE applies to them too.
 			let current_priority = *track_priority.borrow_and_update();
-			let handle = priority.insert(Priority::new(current_priority, sequence));
+			let handle = priority.insert(Priority { group_ascending: subscribe.ordered, ..Priority::new(current_priority, sequence) });
 			tasks.push(
 				Self::serve_group(
 					session.clone(),

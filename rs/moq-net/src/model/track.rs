@@ -34,6 +34,9 @@ pub struct Track {
 	pub name: String,
 	/// Delivery priority. Higher values preempt lower ones when bandwidth is constrained.
 	pub priority: u8,
+	/// When true, groups are delivered oldest-first (ascending sequence). Default is newest-first.
+	#[cfg_attr(feature = "serde", serde(default))]
+	pub ordered: bool,
 }
 
 impl Track {
@@ -42,6 +45,7 @@ impl Track {
 		Self {
 			name: name.into(),
 			priority: 0,
+			ordered: false,
 		}
 	}
 

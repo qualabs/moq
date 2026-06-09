@@ -135,7 +135,7 @@ impl BroadcastProducer {
 		}
 		drop(state);
 
-		self.create_track(Track { name, priority: 0 })
+		self.create_track(Track { name, priority: 0, ordered: false })
 	}
 
 	/// Create a dynamic producer that handles on-demand track requests from consumers.

@@ -43,7 +43,8 @@ fn create_track(broadcast: &mut moq_net::BroadcastProducer) -> anyhow::Result<mo
 	// Basic information about the video track.
 	let video_track = moq_net::Track {
 		name: "video".to_string(),
-		priority: 1, // Video typically has lower priority than audio
+		priority: 1,
+		ordered: false,
 	};
 
 	// Example video configuration

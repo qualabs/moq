@@ -360,7 +360,7 @@ impl<S: web_transport_trait::Session> Subscriber<S> {
 			broadcast: path.as_path(),
 			track: (&track.name).into(),
 			priority: track.priority,
-			ordered: true,
+			ordered: track.ordered,
 			max_latency: std::time::Duration::ZERO,
 			start_group: None,
 			end_group: None,

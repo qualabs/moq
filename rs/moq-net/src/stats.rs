@@ -1067,6 +1067,7 @@ async fn run_publisher(weak: Weak<StatsShared>, advertised: PathOwned, interval:
 	let create = |broadcast: &mut crate::BroadcastProducer, name: &str| match broadcast.create_track(Track {
 		name: name.into(),
 		priority: 0,
+		ordered: false,
 	}) {
 		Ok(t) => Some(t),
 		Err(err) => {

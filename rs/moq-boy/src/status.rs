@@ -43,6 +43,7 @@ impl StatusPublisher {
 		let track = moq_net::Track {
 			name: "status".to_string(),
 			priority: 10,
+			ordered: false,
 		};
 		let producer = broadcast.create_track(track)?;
 

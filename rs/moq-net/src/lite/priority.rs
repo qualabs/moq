@@ -19,22 +19,33 @@ use tokio::sync::watch;
 
 /// A priority composed of a track-level priority and a group sequence number.
 /// Higher `track` is always preferred; `group` only breaks ties within the same track.
+/// When `group_ascending` is true, lower group numbers have higher priority (oldest-first).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Priority {
 	pub track: u8,
 	pub group: u64,
+	pub group_ascending: bool,
 }
 
 impl Priority {
 	pub fn new(track: u8, group: u64) -> Self {
-		Self { track, group }
+		Self { track, group, group_ascending: false }
+	}
+
+	pub fn ascending(mut self) -> Self {
+		self.group_ascending = true;
+		self
 	}
 }
 
 impl Ord for Priority {
 	fn cmp(&self, other: &Self) -> Ordering {
-		// Reverse ordering so highest priority sorts first (index 0)
-		other.track.cmp(&self.track).then(other.group.cmp(&self.group))
+		let group_cmp = if self.group_ascending {
+			self.group.cmp(&other.group)
+		} else {
+			other.group.cmp(&self.group)
+		};
+		other.track.cmp(&self.track).then(group_cmp)
 	}
 }
 
@@ -703,6 +714,31 @@ mod tests {
 
 		assert!(fillers[0].current() < u8::MAX, "f1 should be promoted back into vec");
 		assert_eq!(top.current(), u8::MAX, "demoted top should land in overflow");
+	}
+
+	#[test]
+	fn test_ascending_group_order() {
+		let queue = PriorityQueue::default();
+
+		let mut group1 = queue.insert(Priority::new(100, 1).ascending());
+		let mut group5 = queue.insert(Priority::new(100, 5).ascending());
+		let mut group10 = queue.insert(Priority::new(100, 10).ascending());
+
+		// Ascending: lower group ID = higher priority
+		assert_eq!(group1.current(), 0);
+		assert_eq!(group5.current(), 1);
+		assert_eq!(group10.current(), 2);
+	}
+
+	#[test]
+	fn test_ascending_track_still_overrides_group() {
+		let queue = PriorityQueue::default();
+
+		let mut low_track = queue.insert(Priority::new(50, 1).ascending());
+		let mut high_track = queue.insert(Priority::new(255, 10).ascending());
+
+		assert_eq!(high_track.current(), 0);
+		assert_eq!(low_track.current(), 1);
 	}
 
 	#[test]
