@@ -468,11 +468,7 @@ async fn run_session(
 	let mut catalog = moq_mux::catalog::hang::Consumer::new(catalog_track);
 	let catalog = catalog.next().await?.context("catalog missing")?.clone();
 
-	let consumer_latency = if settings.ascending {
-		Duration::MAX
-	} else {
-		Duration::from_millis(settings.max_latency_ms)
-	};
+	let consumer_latency = Duration::from_millis(settings.max_latency_ms);
 
 	let mut tasks = Vec::new();
 
