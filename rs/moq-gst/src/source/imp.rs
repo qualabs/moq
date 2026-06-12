@@ -206,7 +206,7 @@ impl ObjectImpl for MoqSrc {
 					.build(),
 				glib::ParamSpecUInt64::builder("max-latency-ms")
 					.nick("Max latency (ms)")
-					.blurb("Drop groups older than this to stay at the live edge. Ignored when ascending=true.")
+					.blurb("Drop groups older than this to stay at the live edge.")
 					.default_value(1000)
 					.mutable_ready()
 					.build(),
