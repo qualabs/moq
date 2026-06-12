@@ -191,25 +191,30 @@ impl ObjectImpl for MoqSrc {
 				glib::ParamSpecString::builder("url")
 					.nick("Source URL")
 					.blurb("Connect to the given URL")
+					.mutable_ready()
 					.build(),
 				glib::ParamSpecString::builder("broadcast")
 					.nick("Broadcast")
 					.blurb("The broadcast name to subscribe to")
+					.mutable_ready()
 					.build(),
 				glib::ParamSpecBoolean::builder("tls-disable-verify")
 					.nick("TLS Disable Verify")
 					.blurb("Disable TLS certificate verification")
 					.default_value(false)
+					.mutable_ready()
 					.build(),
 				glib::ParamSpecUInt64::builder("max-latency-ms")
 					.nick("Max latency (ms)")
 					.blurb("Drop groups older than this to stay at the live edge. Ignored when ascending=true.")
 					.default_value(1000)
+					.mutable_ready()
 					.build(),
 				glib::ParamSpecBoolean::builder("ascending")
 					.nick("Ascending")
 					.blurb("Deliver groups oldest-first; default false delivers newest-first (live edge)")
 					.default_value(false)
+					.mutable_ready()
 					.build(),
 			]
 		});
@@ -223,7 +228,13 @@ impl ObjectImpl for MoqSrc {
 			"broadcast" => settings.broadcast = value.get().unwrap(),
 			"tls-disable-verify" => settings.tls_disable_verify = value.get().unwrap(),
 			"max-latency-ms" => settings.max_latency_ms = value.get().unwrap(),
-			"ascending" => settings.ascending = value.get().unwrap(),
+			"ascending" => {
+				settings.ascending = value.get().unwrap();
+				#[cfg(not(feature = "group-order"))]
+				if settings.ascending {
+					gst::warning!(CAT, "ascending=true has no effect: build with --features group-order");
+				}
+			}
 			_ => unreachable!(),
 		}
 	}
