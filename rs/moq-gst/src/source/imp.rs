@@ -20,11 +20,25 @@ static RUNTIME: LazyLock<tokio::runtime::Runtime> = LazyLock::new(|| {
 		.expect("spawn tokio runtime")
 });
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 struct Settings {
 	url: Option<String>,
 	broadcast: Option<String>,
 	tls_disable_verify: bool,
+	max_latency_ms: u64,
+	ascending: bool,
+}
+
+impl Default for Settings {
+	fn default() -> Self {
+		Self {
+			url: None,
+			broadcast: None,
+			tls_disable_verify: false,
+			max_latency_ms: 1000,
+			ascending: false,
+		}
+	}
 }
 
 #[derive(Debug, Clone)]
@@ -32,6 +46,8 @@ struct ResolvedSettings {
 	url: url::Url,
 	broadcast: String,
 	tls_disable_verify: bool,
+	max_latency_ms: u64,
+	ascending: bool,
 }
 
 impl TryFrom<Settings> for ResolvedSettings {
@@ -46,6 +62,8 @@ impl TryFrom<Settings> for ResolvedSettings {
 				.context("broadcast property is required")?
 				.clone(),
 			tls_disable_verify: value.tls_disable_verify,
+			max_latency_ms: value.max_latency_ms,
+			ascending: value.ascending,
 		})
 	}
 }
@@ -173,15 +191,30 @@ impl ObjectImpl for MoqSrc {
 				glib::ParamSpecString::builder("url")
 					.nick("Source URL")
 					.blurb("Connect to the given URL")
+					.mutable_ready()
 					.build(),
 				glib::ParamSpecString::builder("broadcast")
 					.nick("Broadcast")
 					.blurb("The broadcast name to subscribe to")
+					.mutable_ready()
 					.build(),
 				glib::ParamSpecBoolean::builder("tls-disable-verify")
 					.nick("TLS Disable Verify")
 					.blurb("Disable TLS certificate verification")
 					.default_value(false)
+					.mutable_ready()
+					.build(),
+				glib::ParamSpecUInt64::builder("max-latency-ms")
+					.nick("Max latency (ms)")
+					.blurb("Drop groups older than this to stay at the live edge.")
+					.default_value(1000)
+					.mutable_ready()
+					.build(),
+				glib::ParamSpecBoolean::builder("ascending")
+					.nick("Ascending")
+					.blurb("Deliver groups oldest-first; default false delivers newest-first (live edge)")
+					.default_value(false)
+					.mutable_ready()
 					.build(),
 			]
 		});
@@ -194,6 +227,14 @@ impl ObjectImpl for MoqSrc {
 			"url" => settings.url = value.get().unwrap(),
 			"broadcast" => settings.broadcast = value.get().unwrap(),
 			"tls-disable-verify" => settings.tls_disable_verify = value.get().unwrap(),
+			"max-latency-ms" => settings.max_latency_ms = value.get().unwrap(),
+			"ascending" => {
+				settings.ascending = value.get().unwrap();
+				#[cfg(not(feature = "group-order"))]
+				if settings.ascending {
+					gst::warning!(CAT, "ascending=true has no effect: build with --features group-order");
+				}
+			}
 			_ => unreachable!(),
 		}
 	}
@@ -204,6 +245,8 @@ impl ObjectImpl for MoqSrc {
 			"url" => settings.url.to_value(),
 			"broadcast" => settings.broadcast.to_value(),
 			"tls-disable-verify" => settings.tls_disable_verify.to_value(),
+			"max-latency-ms" => settings.max_latency_ms.to_value(),
+			"ascending" => settings.ascending.to_value(),
 			_ => unreachable!(),
 		}
 	}
@@ -436,33 +479,21 @@ async fn run_session(
 	let mut catalog = moq_mux::catalog::hang::Consumer::new(catalog_track);
 	let catalog = catalog.next().await?.context("catalog missing")?.clone();
 
+	let consumer_latency = Duration::from_millis(settings.max_latency_ms);
+
 	let mut tasks = Vec::new();
 
 	for (track_name, config) in catalog.video.renditions {
-		let descriptor = TrackDescriptor {
-			kind: TrackKind::Video,
-			name: track_name.clone(),
-		};
-		let caps = video_caps(&config)?;
-		let endpoint = request_pad(&control_tx, descriptor.clone(), caps).await?;
-		let track_ref = moq_net::Track::new(&track_name);
-		let track_consumer = broadcast.subscribe_track(&track_ref)?;
-		let track = moq_mux::container::Consumer::new(track_consumer, moq_mux::catalog::hang::Container::Legacy)
-			.with_latency(Duration::from_secs(1));
+		let descriptor = TrackDescriptor { kind: TrackKind::Video, name: track_name.clone() };
+		let endpoint = request_pad(&control_tx, descriptor.clone(), video_caps(&config)?).await?;
+		let track = subscribe_track(&broadcast, &track_name, settings.ascending, consumer_latency)?;
 		tasks.push(spawn_track_pump(track, descriptor, endpoint, shutdown.clone()));
 	}
 
 	for (track_name, config) in catalog.audio.renditions {
-		let descriptor = TrackDescriptor {
-			kind: TrackKind::Audio,
-			name: track_name.clone(),
-		};
-		let caps = audio_caps(&config)?;
-		let endpoint = request_pad(&control_tx, descriptor.clone(), caps).await?;
-		let track_ref = moq_net::Track::new(&track_name);
-		let track_consumer = broadcast.subscribe_track(&track_ref)?;
-		let track = moq_mux::container::Consumer::new(track_consumer, moq_mux::catalog::hang::Container::Legacy)
-			.with_latency(Duration::from_secs(1));
+		let descriptor = TrackDescriptor { kind: TrackKind::Audio, name: track_name.clone() };
+		let endpoint = request_pad(&control_tx, descriptor.clone(), audio_caps(&config)?).await?;
+		let track = subscribe_track(&broadcast, &track_name, settings.ascending, consumer_latency)?;
 		tasks.push(spawn_track_pump(track, descriptor, endpoint, shutdown.clone()));
 	}
 
@@ -473,6 +504,23 @@ async fn run_session(
 	}
 
 	Ok(())
+}
+
+fn subscribe_track(
+	broadcast: &moq_net::BroadcastConsumer,
+	name: &str,
+	ascending: bool,
+	latency: Duration,
+) -> Result<moq_mux::container::Consumer<moq_mux::catalog::hang::Container>> {
+	#[allow(unused_mut)]
+	let mut track_ref = moq_net::Track::new(name);
+	#[cfg(feature = "group-order")]
+	{ track_ref.ordered = ascending; }
+	#[cfg(not(feature = "group-order"))]
+	{ let _ = ascending; }
+	let consumer = broadcast.subscribe_track(&track_ref)?;
+	Ok(moq_mux::container::Consumer::new(consumer, moq_mux::catalog::hang::Container::Legacy)
+		.with_latency(latency))
 }
 
 async fn request_pad(

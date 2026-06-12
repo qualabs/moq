@@ -16,6 +16,9 @@ crate-type = ["cdylib", "rlib"]
 test = false
 doctest = false
 
+[features]
+group-order = []
+
 [dependencies]
 
 anyhow = { version = "1", features = ["backtrace"] }
