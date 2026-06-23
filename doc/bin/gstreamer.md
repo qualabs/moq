@@ -30,6 +30,26 @@ Both elements support the following properties:
 For `http://` URLs, `moq-native` automatically fetches the server's certificate fingerprint from `/certificate.sha256` and verifies TLS against it. You don't need `tls-disable-verify` for local development.
 :::
 
+### moqsink listen mode
+
+By default `moqsink` dials a relay (`url`). It can instead run its own QUIC/WebTransport server and serve the broadcast to subscribers that dial it directly, with no relay in between. These properties are moqsink-only and `listen` is mutually exclusive with `url`.
+
+| Property       | Type   | Description                                                                          |
+| -------------- | ------ | ------------------------------------------------------------------------------------ |
+| `listen`       | string | Bind address `host:port` (e.g. `0.0.0.0:4443`). When set, runs a server and ignores `url`. |
+| `tls-generate` | string | Comma-separated hostnames for a self-signed certificate. Listen mode only.           |
+
+The self-signed certificate is only trusted if the subscriber uses the fingerprint or sets `tls-disable-verify`. The server serves its published broadcast to any connecting peer regardless of the dialed URL path; the subscriber selects the broadcast by `broadcast` name.
+
+```bash
+# Publisher: listen instead of dialing a relay.
+gst-launch-1.0 videotestsrc ! x264enc ! \
+  moqsink name=mux listen=0.0.0.0:4443 tls-generate=localhost broadcast=bbb
+
+# Subscriber: dial the publisher directly.
+gst-launch-1.0 moqsrc url=https://localhost:4443 broadcast=bbb tls-disable-verify=true ! ...
+```
+
 ## Prerequisites
 
 The plugin requires GStreamer development libraries. It is **not** built by default since most users don't have them installed.
