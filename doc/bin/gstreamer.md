@@ -36,7 +36,7 @@ By default `moqsink` dials a relay (`url`). It can instead run its own QUIC/WebT
 
 | Property       | Type   | Description                                                                          |
 | -------------- | ------ | ------------------------------------------------------------------------------------ |
-| `listen`       | string | Bind address `host:port` (e.g. `0.0.0.0:4443`). When set, runs a server and ignores `url`. |
+| `listen`       | string | Bind address `host:port` (e.g. `0.0.0.0:4443`). Runs a server in listen mode. Mutually exclusive with `url`. |
 | `tls-generate` | string | Comma-separated hostnames for a self-signed certificate. Listen mode only.           |
 
 The self-signed certificate is only trusted if the subscriber uses the fingerprint or sets `tls-disable-verify`. The server serves its published broadcast to any connecting peer regardless of the dialed URL path; the subscriber selects the broadcast by `broadcast` name.

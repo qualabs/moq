@@ -70,14 +70,17 @@ impl TryFrom<Settings> for ResolvedSettings {
 
 		let transport = match (url, listen) {
 			(Some(url), None) => Transport::Client { url: Url::parse(url)? },
-			(None, Some(bind)) => Transport::Server {
-				bind: bind.to_string(),
-				tls_generate: value
-					.tls_generate
-					.as_deref()
-					.map(parse_hostnames)
-					.unwrap_or_default(),
-			},
+			(None, Some(bind)) => {
+				let tls_generate = value.tls_generate.as_deref().map(parse_hostnames).unwrap_or_default();
+				anyhow::ensure!(
+					!tls_generate.is_empty(),
+					"tls-generate is required in listen mode to generate a self-signed certificate"
+				);
+				Transport::Server {
+					bind: bind.to_string(),
+					tls_generate,
+				}
+			}
 			(Some(_), Some(_)) => anyhow::bail!("set exactly one of `url` or `listen`, not both"),
 			(None, None) => anyhow::bail!("one of `url` or `listen` is required"),
 		};
@@ -442,6 +445,8 @@ async fn run_session(
 		settings.broadcast
 	);
 
+	let mut shutdown_tx = None;
+
 	let (session, accept_task) = match settings.transport.clone() {
 		Transport::Client { url } => {
 			let mut client_config = moq_native::ClientConfig::default();
@@ -457,18 +462,29 @@ async fn run_session(
 			let mut server = server_config.init()?;
 			gst::info!(CAT, "moqsink listening on {bind}");
 
+			// Signals accepted sessions to close when the element stops, so detached
+			// session tasks don't leak connections past run_session.
+			let (tx, _) = tokio::sync::broadcast::channel::<()>(1);
+			let accept_tx = tx.clone();
+
 			let task = RUNTIME.spawn(async move {
 				let mut conn_id: u64 = 0;
 				while let Some(request) = server.accept().await {
 					let origin_consumer = origin.consume();
 					let id = conn_id;
 					conn_id += 1;
+					let mut shutdown_rx = accept_tx.subscribe();
 					tokio::spawn(async move {
 						match request.with_publish(origin_consumer).ok().await {
-							Ok(session) => {
+							Ok(mut session) => {
 								gst::info!(CAT, "moqsink accepted session {id}");
-								if let Err(err) = session.closed().await {
-									gst::warning!(CAT, "session {id} closed with error: {err:?}");
+								tokio::select! {
+									_ = shutdown_rx.recv() => session.close(moq_net::Error::Cancel),
+									res = session.closed() => {
+										if let Err(err) = res {
+											gst::warning!(CAT, "session {id} closed with error: {err:?}");
+										}
+									}
 								}
 							}
 							Err(err) => gst::warning!(CAT, "failed to accept session {id}: {err:?}"),
@@ -476,6 +492,7 @@ async fn run_session(
 					});
 				}
 			});
+			shutdown_tx = Some(tx);
 			(None, Some(task))
 		}
 	};
@@ -520,6 +537,10 @@ async fn run_session(
 
 	if let Some(task) = accept_task {
 		task.abort();
+	}
+
+	if let Some(tx) = shutdown_tx {
+		let _ = tx.send(());
 	}
 
 	Ok(())
