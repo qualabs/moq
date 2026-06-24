@@ -1458,6 +1458,7 @@ mod tests {
 			.subscribe_track(&Track {
 				name: "publisher.json".into(),
 				priority: 0,
+				ordered: false,
 			})
 			.expect("subscribe");
 		let frame = read_frame(track).await;
@@ -1486,6 +1487,7 @@ mod tests {
 			.subscribe_track(&Track {
 				name: "publisher.json".into(),
 				priority: 0,
+				ordered: false,
 			})
 			.expect("subscribe");
 		let frame = read_frame(track).await;
@@ -1522,6 +1524,7 @@ mod tests {
 			.subscribe_track(&Track {
 				name: "publisher.json".into(),
 				priority: 0,
+				ordered: false,
 			})
 			.expect("subscribe");
 		let frame = read_frame(track).await;
@@ -1650,6 +1653,7 @@ mod tests {
 			.subscribe_track(&Track {
 				name: "sessions.json".into(),
 				priority: 0,
+				ordered: false,
 			})
 			.expect("subscribe");
 		let frame = read_session_frame(track).await;
@@ -1665,6 +1669,7 @@ mod tests {
 			.subscribe_track(&Track {
 				name: "internal/sessions.json".into(),
 				priority: 0,
+				ordered: false,
 			})
 			.expect("subscribe");
 		let snap = *read_session_frame(int_track).await.get("peer").expect("internal entry");
@@ -1716,6 +1721,7 @@ mod tests {
 			.subscribe_track(&Track {
 				name: "publisher.json".into(),
 				priority: 0,
+				ordered: false,
 			})
 			.expect("subscribe");
 		assert!(
@@ -1730,6 +1736,7 @@ mod tests {
 				.subscribe_track(&Track {
 					name: name.into(),
 					priority: 0,
+					ordered: false,
 				})
 				.expect("subscribe");
 			let frame = read_frame(t).await;
