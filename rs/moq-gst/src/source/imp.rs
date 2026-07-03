@@ -23,6 +23,8 @@ static RUNTIME: LazyLock<tokio::runtime::Runtime> = LazyLock::new(|| {
 #[derive(Debug, Clone)]
 struct Settings {
 	url: Option<String>,
+	listen: Option<String>,
+	tls_generate: Option<String>,
 	broadcast: Option<String>,
 	tls_disable_verify: bool,
 	max_latency_ms: u64,
@@ -33,6 +35,8 @@ impl Default for Settings {
 	fn default() -> Self {
 		Self {
 			url: None,
+			listen: None,
+			tls_generate: None,
 			broadcast: None,
 			tls_disable_verify: false,
 			max_latency_ms: 1000,
@@ -42,8 +46,14 @@ impl Default for Settings {
 }
 
 #[derive(Debug, Clone)]
+enum Transport {
+	Client { url: url::Url },
+	Server { bind: String, tls_generate: Vec<String> },
+}
+
+#[derive(Debug, Clone)]
 struct ResolvedSettings {
-	url: url::Url,
+	transport: Transport,
 	broadcast: String,
 	tls_disable_verify: bool,
 	max_latency_ms: u64,
@@ -54,18 +64,51 @@ impl TryFrom<Settings> for ResolvedSettings {
 	type Error = anyhow::Error;
 
 	fn try_from(value: Settings) -> Result<Self> {
+		let broadcast = value
+			.broadcast
+			.as_ref()
+			.context("broadcast property is required")?
+			.clone();
+
+		let url = value.url.as_deref().filter(|s| !s.is_empty());
+		let listen = value.listen.as_deref().filter(|s| !s.is_empty());
+
+		let transport = match (url, listen) {
+			(Some(url), None) => Transport::Client {
+				url: url::Url::parse(url)?,
+			},
+			(None, Some(bind)) => {
+				let tls_generate = value.tls_generate.as_deref().map(parse_hostnames).unwrap_or_default();
+				anyhow::ensure!(
+					!tls_generate.is_empty(),
+					"tls-generate is required in listen mode to generate a self-signed certificate"
+				);
+				Transport::Server {
+					bind: bind.to_string(),
+					tls_generate,
+				}
+			}
+			(Some(_), Some(_)) => anyhow::bail!("set exactly one of `url` or `listen`, not both"),
+			(None, None) => anyhow::bail!("one of `url` or `listen` is required"),
+		};
+
 		Ok(Self {
-			url: url::Url::parse(value.url.as_ref().context("url property is required")?)?,
-			broadcast: value
-				.broadcast
-				.as_ref()
-				.context("broadcast property is required")?
-				.clone(),
+			transport,
+			broadcast,
 			tls_disable_verify: value.tls_disable_verify,
 			max_latency_ms: value.max_latency_ms,
 			ascending: value.ascending,
 		})
 	}
+}
+
+fn parse_hostnames(value: &str) -> Vec<String> {
+	value
+		.split(',')
+		.map(str::trim)
+		.filter(|host| !host.is_empty())
+		.map(str::to_string)
+		.collect()
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -190,7 +233,17 @@ impl ObjectImpl for MoqSrc {
 			vec![
 				glib::ParamSpecString::builder("url")
 					.nick("Source URL")
-					.blurb("Connect to the given URL")
+					.blurb("Dial the given URL (client mode). Mutually exclusive with `listen`")
+					.mutable_ready()
+					.build(),
+				glib::ParamSpecString::builder("listen")
+					.nick("Listen address")
+					.blurb("Run a server bound to host:port and consume the broadcast from a publisher that dials it. Mutually exclusive with `url`")
+					.mutable_ready()
+					.build(),
+				glib::ParamSpecString::builder("tls-generate")
+					.nick("TLS generate hostnames")
+					.blurb("Comma-separated hostnames for a self-signed certificate (listen mode only)")
 					.mutable_ready()
 					.build(),
 				glib::ParamSpecString::builder("broadcast")
@@ -225,6 +278,8 @@ impl ObjectImpl for MoqSrc {
 		let mut settings = self.settings.lock().unwrap();
 		match pspec.name() {
 			"url" => settings.url = value.get().unwrap(),
+			"listen" => settings.listen = value.get().unwrap(),
+			"tls-generate" => settings.tls_generate = value.get().unwrap(),
 			"broadcast" => settings.broadcast = value.get().unwrap(),
 			"tls-disable-verify" => settings.tls_disable_verify = value.get().unwrap(),
 			"max-latency-ms" => settings.max_latency_ms = value.get().unwrap(),
@@ -243,6 +298,8 @@ impl ObjectImpl for MoqSrc {
 		let settings = self.settings.lock().unwrap();
 		match pspec.name() {
 			"url" => settings.url.to_value(),
+			"listen" => settings.listen.to_value(),
+			"tls-generate" => settings.tls_generate.to_value(),
 			"broadcast" => settings.broadcast.to_value(),
 			"tls-disable-verify" => settings.tls_disable_verify.to_value(),
 			"max-latency-ms" => settings.max_latency_ms.to_value(),
@@ -457,14 +514,26 @@ async fn run_session(
 	control_tx: mpsc::UnboundedSender<ControlMessage>,
 	shutdown: &mut watch::Receiver<bool>,
 ) -> Result<()> {
-	let mut config = moq_native::ClientConfig::default();
-	config.tls.disable_verify = Some(settings.tls_disable_verify);
-
 	let origin = moq_net::Origin::random().produce();
 	let origin_consumer = origin.consume();
-	let client = config.init()?.with_consume(origin);
 
-	let _session = client.connect(settings.url.clone()).await?;
+	let _session = match settings.transport.clone() {
+		Transport::Client { url } => {
+			let mut config = moq_native::ClientConfig::default();
+			config.tls.disable_verify = Some(settings.tls_disable_verify);
+			let client = config.init()?.with_consume(origin);
+			client.connect(url).await?
+		}
+		Transport::Server { bind, tls_generate } => {
+			let mut server_config = moq_native::ServerConfig::default();
+			server_config.bind = Some(bind.clone());
+			server_config.tls.generate = tls_generate;
+			let mut server = server_config.init()?;
+			gst::info!(CAT, "moqsrc listening on {bind}");
+			let request = server.accept().await.context("listener closed before a session arrived")?;
+			request.with_consume(origin).ok().await?
+		}
+	};
 
 	// Wait for the broadcast to be announced. Synchronous lookup would race the gossip of
 	// announcements that happens after the session is established.
