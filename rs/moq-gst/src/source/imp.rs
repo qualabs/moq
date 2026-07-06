@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::{LazyLock, Mutex};
 use std::time::Duration;
 
@@ -148,7 +148,6 @@ enum ControlMessage {
 		caps: gst::Caps,
 		reply: oneshot::Sender<PadEndpoint>,
 	},
-	NoMorePads,
 	ReportError(anyhow::Error),
 }
 
@@ -426,9 +425,6 @@ impl MoqSrc {
 					gst::error!(CAT, obj = self.obj(), "failed to create pad: {err:?}");
 				}
 			}
-			ControlMessage::NoMorePads => {
-				self.obj().no_more_pads();
-			}
 			ControlMessage::ReportError(err) => {
 				gst::element_error!(self.obj(), gst::CoreError::Failed, ("session error"), ["{err:?}"]);
 			}
@@ -546,36 +542,43 @@ async fn run_session(
 
 	let catalog_track = broadcast.subscribe_track(&hang::catalog::Catalog::default_track())?;
 	let mut catalog_updates = moq_mux::catalog::hang::Consumer::new(catalog_track);
-	// The publisher briefly publishes an empty catalog while replacing a track:
-	// the old importer's drop removes its rendition before the successor re-adds it.
-	// An empty catalog is transient, so wait for an update that lists tracks.
-	let catalog = loop {
-		let update = catalog_updates.next().await?.context("catalog missing")?;
-		if !update.video.renditions.is_empty() || !update.audio.renditions.is_empty() {
-			break update;
-		}
-		tracing::debug!("ignoring catalog update with no tracks");
-	};
 
 	let consumer_latency = Duration::from_millis(settings.max_latency_ms);
-
+	let mut known_tracks = HashSet::new();
 	let mut tasks = Vec::new();
 
-	for (track_name, config) in catalog.video.renditions {
-		let descriptor = TrackDescriptor { kind: TrackKind::Video, name: track_name.clone() };
-		let endpoint = request_pad(&control_tx, descriptor.clone(), video_caps(&config)?).await?;
-		let track = subscribe_track(&broadcast, &track_name, settings.ascending, consumer_latency)?;
-		tasks.push(spawn_track_pump(track, descriptor, endpoint, shutdown.clone()));
-	}
+	// Tracks register in the catalog at different times (audio at caps time, video
+	// at the first keyframe) and can be replaced under a new name mid-stream, so
+	// keep consuming catalog updates and subscribe to tracks as they appear.
+	loop {
+		let update = tokio::select! {
+			update = catalog_updates.next() => match update? {
+				Some(update) => update,
+				None => break,
+			},
+			_ = shutdown.changed() => break,
+		};
 
-	for (track_name, config) in catalog.audio.renditions {
-		let descriptor = TrackDescriptor { kind: TrackKind::Audio, name: track_name.clone() };
-		let endpoint = request_pad(&control_tx, descriptor.clone(), audio_caps(&config)?).await?;
-		let track = subscribe_track(&broadcast, &track_name, settings.ascending, consumer_latency)?;
-		tasks.push(spawn_track_pump(track, descriptor, endpoint, shutdown.clone()));
-	}
+		for (track_name, config) in update.video.renditions {
+			if !known_tracks.insert(track_name.clone()) {
+				continue;
+			}
+			let descriptor = TrackDescriptor { kind: TrackKind::Video, name: track_name.clone() };
+			let endpoint = request_pad(&control_tx, descriptor.clone(), video_caps(&config)?).await?;
+			let track = subscribe_track(&broadcast, &track_name, settings.ascending, consumer_latency)?;
+			tasks.push(spawn_track_pump(track, descriptor, endpoint, shutdown.clone()));
+		}
 
-	let _ = control_tx.send(ControlMessage::NoMorePads);
+		for (track_name, config) in update.audio.renditions {
+			if !known_tracks.insert(track_name.clone()) {
+				continue;
+			}
+			let descriptor = TrackDescriptor { kind: TrackKind::Audio, name: track_name.clone() };
+			let endpoint = request_pad(&control_tx, descriptor.clone(), audio_caps(&config)?).await?;
+			let track = subscribe_track(&broadcast, &track_name, settings.ascending, consumer_latency)?;
+			tasks.push(spawn_track_pump(track, descriptor, endpoint, shutdown.clone()));
+		}
+	}
 
 	for task in tasks {
 		let _ = task.await;
