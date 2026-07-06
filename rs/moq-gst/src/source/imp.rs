@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::{LazyLock, Mutex};
 use std::time::Duration;
 
@@ -23,6 +23,8 @@ static RUNTIME: LazyLock<tokio::runtime::Runtime> = LazyLock::new(|| {
 #[derive(Debug, Clone)]
 struct Settings {
 	url: Option<String>,
+	listen: Option<String>,
+	tls_generate: Option<String>,
 	broadcast: Option<String>,
 	tls_disable_verify: bool,
 	max_latency_ms: u64,
@@ -33,6 +35,8 @@ impl Default for Settings {
 	fn default() -> Self {
 		Self {
 			url: None,
+			listen: None,
+			tls_generate: None,
 			broadcast: None,
 			tls_disable_verify: false,
 			max_latency_ms: 1000,
@@ -42,8 +46,14 @@ impl Default for Settings {
 }
 
 #[derive(Debug, Clone)]
+enum Transport {
+	Client { url: url::Url },
+	Server { bind: String, tls_generate: Vec<String> },
+}
+
+#[derive(Debug, Clone)]
 struct ResolvedSettings {
-	url: url::Url,
+	transport: Transport,
 	broadcast: String,
 	tls_disable_verify: bool,
 	max_latency_ms: u64,
@@ -54,18 +64,51 @@ impl TryFrom<Settings> for ResolvedSettings {
 	type Error = anyhow::Error;
 
 	fn try_from(value: Settings) -> Result<Self> {
+		let broadcast = value
+			.broadcast
+			.as_ref()
+			.context("broadcast property is required")?
+			.clone();
+
+		let url = value.url.as_deref().filter(|s| !s.is_empty());
+		let listen = value.listen.as_deref().filter(|s| !s.is_empty());
+
+		let transport = match (url, listen) {
+			(Some(url), None) => Transport::Client {
+				url: url::Url::parse(url)?,
+			},
+			(None, Some(bind)) => {
+				let tls_generate = value.tls_generate.as_deref().map(parse_hostnames).unwrap_or_default();
+				anyhow::ensure!(
+					!tls_generate.is_empty(),
+					"tls-generate is required in listen mode to generate a self-signed certificate"
+				);
+				Transport::Server {
+					bind: bind.to_string(),
+					tls_generate,
+				}
+			}
+			(Some(_), Some(_)) => anyhow::bail!("set exactly one of `url` or `listen`, not both"),
+			(None, None) => anyhow::bail!("one of `url` or `listen` is required"),
+		};
+
 		Ok(Self {
-			url: url::Url::parse(value.url.as_ref().context("url property is required")?)?,
-			broadcast: value
-				.broadcast
-				.as_ref()
-				.context("broadcast property is required")?
-				.clone(),
+			transport,
+			broadcast,
 			tls_disable_verify: value.tls_disable_verify,
 			max_latency_ms: value.max_latency_ms,
 			ascending: value.ascending,
 		})
 	}
+}
+
+fn parse_hostnames(value: &str) -> Vec<String> {
+	value
+		.split(',')
+		.map(str::trim)
+		.filter(|host| !host.is_empty())
+		.map(str::to_string)
+		.collect()
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -105,7 +148,6 @@ enum ControlMessage {
 		caps: gst::Caps,
 		reply: oneshot::Sender<PadEndpoint>,
 	},
-	NoMorePads,
 	ReportError(anyhow::Error),
 }
 
@@ -190,7 +232,17 @@ impl ObjectImpl for MoqSrc {
 			vec![
 				glib::ParamSpecString::builder("url")
 					.nick("Source URL")
-					.blurb("Connect to the given URL")
+					.blurb("Dial the given URL (client mode). Mutually exclusive with `listen`")
+					.mutable_ready()
+					.build(),
+				glib::ParamSpecString::builder("listen")
+					.nick("Listen address")
+					.blurb("Run a server bound to host:port and consume the broadcast from a publisher that dials it. Mutually exclusive with `url`")
+					.mutable_ready()
+					.build(),
+				glib::ParamSpecString::builder("tls-generate")
+					.nick("TLS generate hostnames")
+					.blurb("Comma-separated hostnames for a self-signed certificate (listen mode only)")
 					.mutable_ready()
 					.build(),
 				glib::ParamSpecString::builder("broadcast")
@@ -225,6 +277,8 @@ impl ObjectImpl for MoqSrc {
 		let mut settings = self.settings.lock().unwrap();
 		match pspec.name() {
 			"url" => settings.url = value.get().unwrap(),
+			"listen" => settings.listen = value.get().unwrap(),
+			"tls-generate" => settings.tls_generate = value.get().unwrap(),
 			"broadcast" => settings.broadcast = value.get().unwrap(),
 			"tls-disable-verify" => settings.tls_disable_verify = value.get().unwrap(),
 			"max-latency-ms" => settings.max_latency_ms = value.get().unwrap(),
@@ -243,6 +297,8 @@ impl ObjectImpl for MoqSrc {
 		let settings = self.settings.lock().unwrap();
 		match pspec.name() {
 			"url" => settings.url.to_value(),
+			"listen" => settings.listen.to_value(),
+			"tls-generate" => settings.tls_generate.to_value(),
 			"broadcast" => settings.broadcast.to_value(),
 			"tls-disable-verify" => settings.tls_disable_verify.to_value(),
 			"max-latency-ms" => settings.max_latency_ms.to_value(),
@@ -369,9 +425,6 @@ impl MoqSrc {
 					gst::error!(CAT, obj = self.obj(), "failed to create pad: {err:?}");
 				}
 			}
-			ControlMessage::NoMorePads => {
-				self.obj().no_more_pads();
-			}
 			ControlMessage::ReportError(err) => {
 				gst::element_error!(self.obj(), gst::CoreError::Failed, ("session error"), ["{err:?}"]);
 			}
@@ -457,14 +510,29 @@ async fn run_session(
 	control_tx: mpsc::UnboundedSender<ControlMessage>,
 	shutdown: &mut watch::Receiver<bool>,
 ) -> Result<()> {
-	let mut config = moq_native::ClientConfig::default();
-	config.tls.disable_verify = Some(settings.tls_disable_verify);
-
 	let origin = moq_net::Origin::random().produce();
 	let origin_consumer = origin.consume();
-	let client = config.init()?.with_consume(origin);
 
-	let _session = client.connect(settings.url.clone()).await?;
+	let _session = match settings.transport.clone() {
+		Transport::Client { url } => {
+			let mut config = moq_native::ClientConfig::default();
+			config.tls.disable_verify = Some(settings.tls_disable_verify);
+			let client = config.init()?.with_consume(origin);
+			client.connect(url).await?
+		}
+		Transport::Server { bind, tls_generate } => {
+			let mut server_config = moq_native::ServerConfig::default();
+			server_config.bind = Some(bind.clone());
+			server_config.tls.generate = tls_generate;
+			let mut server = server_config.init()?;
+			gst::info!(CAT, "moqsrc listening on {bind}");
+			let request = tokio::select! {
+				request = server.accept() => request.context("listener closed before a session arrived")?,
+				_ = shutdown.changed() => return Ok(()),
+			};
+			request.with_consume(origin).ok().await?
+		}
+	};
 
 	// Wait for the broadcast to be announced. Synchronous lookup would race the gossip of
 	// announcements that happens after the session is established.
@@ -476,28 +544,44 @@ async fn run_session(
 	};
 
 	let catalog_track = broadcast.subscribe_track(&hang::catalog::Catalog::default_track())?;
-	let mut catalog = moq_mux::catalog::hang::Consumer::new(catalog_track);
-	let catalog = catalog.next().await?.context("catalog missing")?.clone();
+	let mut catalog_updates = moq_mux::catalog::hang::Consumer::new(catalog_track);
 
 	let consumer_latency = Duration::from_millis(settings.max_latency_ms);
-
+	let mut known_tracks = HashSet::new();
 	let mut tasks = Vec::new();
 
-	for (track_name, config) in catalog.video.renditions {
-		let descriptor = TrackDescriptor { kind: TrackKind::Video, name: track_name.clone() };
-		let endpoint = request_pad(&control_tx, descriptor.clone(), video_caps(&config)?).await?;
-		let track = subscribe_track(&broadcast, &track_name, settings.ascending, consumer_latency)?;
-		tasks.push(spawn_track_pump(track, descriptor, endpoint, shutdown.clone()));
-	}
+	// Tracks register in the catalog at different times (audio at caps time, video
+	// at the first keyframe) and can be replaced under a new name mid-stream, so
+	// keep consuming catalog updates and subscribe to tracks as they appear.
+	loop {
+		let update = tokio::select! {
+			update = catalog_updates.next() => match update? {
+				Some(update) => update,
+				None => break,
+			},
+			_ = shutdown.changed() => break,
+		};
 
-	for (track_name, config) in catalog.audio.renditions {
-		let descriptor = TrackDescriptor { kind: TrackKind::Audio, name: track_name.clone() };
-		let endpoint = request_pad(&control_tx, descriptor.clone(), audio_caps(&config)?).await?;
-		let track = subscribe_track(&broadcast, &track_name, settings.ascending, consumer_latency)?;
-		tasks.push(spawn_track_pump(track, descriptor, endpoint, shutdown.clone()));
-	}
+		for (track_name, config) in update.video.renditions {
+			if !known_tracks.insert(track_name.clone()) {
+				continue;
+			}
+			let descriptor = TrackDescriptor { kind: TrackKind::Video, name: track_name.clone() };
+			let endpoint = request_pad(&control_tx, descriptor.clone(), video_caps(&config)?).await?;
+			let track = subscribe_track(&broadcast, &track_name, settings.ascending, consumer_latency)?;
+			tasks.push(spawn_track_pump(track, descriptor, endpoint, shutdown.clone()));
+		}
 
-	let _ = control_tx.send(ControlMessage::NoMorePads);
+		for (track_name, config) in update.audio.renditions {
+			if !known_tracks.insert(track_name.clone()) {
+				continue;
+			}
+			let descriptor = TrackDescriptor { kind: TrackKind::Audio, name: track_name.clone() };
+			let endpoint = request_pad(&control_tx, descriptor.clone(), audio_caps(&config)?).await?;
+			let track = subscribe_track(&broadcast, &track_name, settings.ascending, consumer_latency)?;
+			tasks.push(spawn_track_pump(track, descriptor, endpoint, shutdown.clone()));
+		}
+	}
 
 	for task in tasks {
 		let _ = task.await;

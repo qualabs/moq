@@ -36,13 +36,21 @@ static CAT: LazyLock<gst::DebugCategory> = LazyLock::new(|| {
 #[derive(Debug, Clone, Default)]
 struct Settings {
 	url: Option<String>,
+	listen: Option<String>,
+	tls_generate: Option<String>,
 	broadcast: Option<String>,
 	tls_disable_verify: bool,
 }
 
 #[derive(Debug, Clone)]
+enum Transport {
+	Client { url: Url },
+	Server { bind: String, tls_generate: Vec<String> },
+}
+
+#[derive(Debug, Clone)]
 struct ResolvedSettings {
-	url: Url,
+	transport: Transport,
 	broadcast: String,
 	tls_disable_verify: bool,
 }
@@ -51,16 +59,47 @@ impl TryFrom<Settings> for ResolvedSettings {
 	type Error = anyhow::Error;
 
 	fn try_from(value: Settings) -> Result<Self> {
+		let broadcast = value
+			.broadcast
+			.as_ref()
+			.context("broadcast property is required")?
+			.clone();
+
+		let url = value.url.as_deref().filter(|s| !s.is_empty());
+		let listen = value.listen.as_deref().filter(|s| !s.is_empty());
+
+		let transport = match (url, listen) {
+			(Some(url), None) => Transport::Client { url: Url::parse(url)? },
+			(None, Some(bind)) => {
+				let tls_generate = value.tls_generate.as_deref().map(parse_hostnames).unwrap_or_default();
+				anyhow::ensure!(
+					!tls_generate.is_empty(),
+					"tls-generate is required in listen mode to generate a self-signed certificate"
+				);
+				Transport::Server {
+					bind: bind.to_string(),
+					tls_generate,
+				}
+			}
+			(Some(_), Some(_)) => anyhow::bail!("set exactly one of `url` or `listen`, not both"),
+			(None, None) => anyhow::bail!("one of `url` or `listen` is required"),
+		};
+
 		Ok(Self {
-			url: Url::parse(value.url.as_ref().context("url property is required")?)?,
-			broadcast: value
-				.broadcast
-				.as_ref()
-				.context("broadcast property is required")?
-				.clone(),
+			transport,
+			broadcast,
 			tls_disable_verify: value.tls_disable_verify,
 		})
 	}
+}
+
+fn parse_hostnames(value: &str) -> Vec<String> {
+	value
+		.split(',')
+		.map(str::trim)
+		.filter(|host| !host.is_empty())
+		.map(str::to_string)
+		.collect()
 }
 
 #[derive(Debug)]
@@ -87,7 +126,7 @@ struct PadState {
 
 struct RuntimeState {
 	#[allow(dead_code)]
-	session: moq_net::Session,
+	session: Option<moq_net::Session>,
 	broadcast: moq_net::BroadcastProducer,
 	catalog: moq_mux::catalog::hang::Producer,
 	pads: HashMap<String, PadState>,
@@ -132,7 +171,15 @@ impl ObjectImpl for MoqSink {
 			vec![
 				glib::ParamSpecString::builder("url")
 					.nick("Source URL")
-					.blurb("Connect to the given URL")
+					.blurb("Dial the given URL (client mode). Mutually exclusive with `listen`")
+					.build(),
+				glib::ParamSpecString::builder("listen")
+					.nick("Listen address")
+					.blurb("Run a server bound to host:port and serve the broadcast to subscribers that dial it. Mutually exclusive with `url`")
+					.build(),
+				glib::ParamSpecString::builder("tls-generate")
+					.nick("TLS generate hostnames")
+					.blurb("Comma-separated hostnames for a self-signed certificate (listen mode only)")
 					.build(),
 				glib::ParamSpecString::builder("broadcast")
 					.nick("Broadcast")
@@ -152,6 +199,8 @@ impl ObjectImpl for MoqSink {
 		let mut settings = self.settings.lock().unwrap();
 		match pspec.name() {
 			"url" => settings.url = value.get().unwrap(),
+			"listen" => settings.listen = value.get().unwrap(),
+			"tls-generate" => settings.tls_generate = value.get().unwrap(),
 			"broadcast" => settings.broadcast = value.get().unwrap(),
 			"tls-disable-verify" => settings.tls_disable_verify = value.get().unwrap(),
 			_ => unreachable!(),
@@ -162,6 +211,8 @@ impl ObjectImpl for MoqSink {
 		let settings = self.settings.lock().unwrap();
 		match pspec.name() {
 			"url" => settings.url.to_value(),
+			"listen" => settings.listen.to_value(),
+			"tls-generate" => settings.tls_generate.to_value(),
 			"broadcast" => settings.broadcast.to_value(),
 			"tls-disable-verify" => settings.tls_disable_verify.to_value(),
 			_ => unreachable!(),
@@ -382,11 +433,6 @@ async fn run_session(
 	mut rx: mpsc::UnboundedReceiver<ControlMessage>,
 	element_weak: gst::glib::WeakRef<super::MoqSink>,
 ) -> Result<()> {
-	let mut client_config = moq_native::ClientConfig::default();
-	client_config.tls.disable_verify = Some(settings.tls_disable_verify);
-
-	let client = client_config.init()?;
-
 	let origin = moq_net::Origin::random().produce();
 	let mut broadcast = moq_net::Broadcast::new().produce();
 	let broadcast_consumer = broadcast.consume();
@@ -399,8 +445,57 @@ async fn run_session(
 		settings.broadcast
 	);
 
-	let client = client.with_publish(origin.consume());
-	let session = client.connect(settings.url.clone()).await?;
+	let mut shutdown_tx = None;
+
+	let (session, accept_task) = match settings.transport.clone() {
+		Transport::Client { url } => {
+			let mut client_config = moq_native::ClientConfig::default();
+			client_config.tls.disable_verify = Some(settings.tls_disable_verify);
+			let client = client_config.init()?.with_publish(origin.consume());
+			let session = client.connect(url).await?;
+			(Some(session), None)
+		}
+		Transport::Server { bind, tls_generate } => {
+			let mut server_config = moq_native::ServerConfig::default();
+			server_config.bind = Some(bind.clone());
+			server_config.tls.generate = tls_generate;
+			let mut server = server_config.init()?;
+			gst::info!(CAT, "moqsink listening on {bind}");
+
+			// Signals accepted sessions to close when the element stops, so detached
+			// session tasks don't leak connections past run_session.
+			let (tx, _) = tokio::sync::broadcast::channel::<()>(1);
+			let accept_tx = tx.clone();
+
+			let task = RUNTIME.spawn(async move {
+				let mut conn_id: u64 = 0;
+				while let Some(request) = server.accept().await {
+					let origin_consumer = origin.consume();
+					let id = conn_id;
+					conn_id += 1;
+					let mut shutdown_rx = accept_tx.subscribe();
+					tokio::spawn(async move {
+						match request.with_publish(origin_consumer).ok().await {
+							Ok(mut session) => {
+								gst::info!(CAT, "moqsink accepted session {id}");
+								tokio::select! {
+									_ = shutdown_rx.recv() => session.close(moq_net::Error::Cancel),
+									res = session.closed() => {
+										if let Err(err) = res {
+											gst::warning!(CAT, "session {id} closed with error: {err:?}");
+										}
+									}
+								}
+							}
+							Err(err) => gst::warning!(CAT, "failed to accept session {id}: {err:?}"),
+						}
+					});
+				}
+			});
+			shutdown_tx = Some(tx);
+			(None, Some(task))
+		}
+	};
 
 	let mut runtime = RuntimeState {
 		session,
@@ -438,6 +533,14 @@ async fn run_session(
 			}
 			ControlMessage::Shutdown => break,
 		}
+	}
+
+	if let Some(task) = accept_task {
+		task.abort();
+	}
+
+	if let Some(tx) = shutdown_tx {
+		let _ = tx.send(());
 	}
 
 	Ok(())
