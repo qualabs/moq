@@ -526,7 +526,10 @@ async fn run_session(
 			server_config.tls.generate = tls_generate;
 			let mut server = server_config.init()?;
 			gst::info!(CAT, "moqsrc listening on {bind}");
-			let request = server.accept().await.context("listener closed before a session arrived")?;
+			let request = tokio::select! {
+				request = server.accept() => request.context("listener closed before a session arrived")?,
+				_ = shutdown.changed() => return Ok(()),
+			};
 			request.with_consume(origin).ok().await?
 		}
 	};
