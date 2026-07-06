@@ -545,8 +545,17 @@ async fn run_session(
 	};
 
 	let catalog_track = broadcast.subscribe_track(&hang::catalog::Catalog::default_track())?;
-	let mut catalog = moq_mux::catalog::hang::Consumer::new(catalog_track);
-	let catalog = catalog.next().await?.context("catalog missing")?.clone();
+	let mut catalog_updates = moq_mux::catalog::hang::Consumer::new(catalog_track);
+	// The publisher briefly publishes an empty catalog while replacing a track:
+	// the old importer's drop removes its rendition before the successor re-adds it.
+	// An empty catalog is transient, so wait for an update that lists tracks.
+	let catalog = loop {
+		let update = catalog_updates.next().await?.context("catalog missing")?;
+		if !update.video.renditions.is_empty() || !update.audio.renditions.is_empty() {
+			break update;
+		}
+		tracing::debug!("ignoring catalog update with no tracks");
+	};
 
 	let consumer_latency = Duration::from_millis(settings.max_latency_ms);
 
